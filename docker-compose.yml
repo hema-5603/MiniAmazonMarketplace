@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  user-db:
+    image: mysql:8.0
+    container_name: mam_user_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mam0103worlder
+      MYSQL_DATABASE: mam-user
+    ports:
+      - "3306:3306"
+    volumes:
+      - user_db_data:/var/lib/mysql
+volumes:
+  user_db_data:
