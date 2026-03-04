@@ -2,8 +2,8 @@ package service
 import (
 "errors"
 "golang.org/x/crypto/bcrypt"
-"yourproject/models"
-"yourproject/repository"
+"MAM/models"
+"MAM/repository"
 )
 type UserService interface {
 	Register(req models.RegisterRequest) (*models.User, error)
@@ -14,7 +14,7 @@ type userService struct {
 func NewUserService(repo repository.UserRepository) UserService {
 	return &userService{repo}
 }
-func (s userService) Register(req models.RegisterRequest) (models.User, error) {
+func (s *userService) Register(req models.RegisterRequest) (*models.User, error) {
 	// 1. Hash the password securely
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -24,7 +24,7 @@ func (s userService) Register(req models.RegisterRequest) (models.User, error) {
 user := &models.User{
 	Email: req.Email,
 	PasswordHash: string(hashedPassword),
-	FullName: req.FullName,
+	Name: req.FullName,
 	Role: req.Role,
 }
 // 3. Save to database using the repository
