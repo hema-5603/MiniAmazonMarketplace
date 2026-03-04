@@ -14,7 +14,7 @@ import(
 
 func main() {
 	//Connection to MySQL
-	db,err := sql.Open("mysql","root:mam0103worlder@tcp(127.0.0.1:3306)/mam-user?parseTime=true") //"user:pass@tcp(127.0.0.1:3306)/dbname"
+	db,err := sql.Open("mysql","root:mam0103worlder@tcp(127.0.0.1:3306)/mam_user?parseTime=true") //"user:pass@tcp(127.0.0.1:3306)/dbname"
 
 	if err != nil{
 		log.Fatal("Failed to open DB connection",err)
@@ -36,4 +36,6 @@ func main() {
 	v1 := e.Group("/api/v1")
 	v1.POST("/auth/register", userHandler.Register)
 	e.Logger.Fatal(e.Start(":8080"))
+
+	
 }

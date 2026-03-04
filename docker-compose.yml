@@ -6,7 +6,7 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: mam0103worlder
-      MYSQL_DATABASE: mam-user
+      MYSQL_DATABASE: mam_user
     ports:
       - "3306:3306"
     volumes:

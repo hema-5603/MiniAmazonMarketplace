@@ -1,5 +1,6 @@
 package handler
 import (
+	"fmt"
 	"net/http"
 	"github.com/labstack/echo/v4"
 	"MAM/models"
@@ -24,6 +25,7 @@ func (h *UserHandler) Register(c echo.Context) error {
 // 2. Call the Service layer
 user, err := h.service.Register(req)
 if err != nil {
+	fmt.Println("DB ERROR:",err)
 	return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 	"success": false,
 	"message": "Failed to register user",

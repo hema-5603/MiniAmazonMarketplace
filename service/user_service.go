@@ -24,7 +24,7 @@ func (s *userService) Register(req models.RegisterRequest) (*models.User, error)
 user := &models.User{
 	Email: req.Email,
 	PasswordHash: string(hashedPassword),
-	Name: req.FullName,
+	Name: req.Name,
 	Role: req.Role,
 }
 // 3. Save to database using the repository
