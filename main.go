@@ -5,7 +5,7 @@ import(
 	"log"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/labstack/echo/v4"
-
+	"github.com/joho/godotenv"
 	"MAM/handler"
 	"MAM/repository"
 	"MAM/service"
@@ -28,6 +28,12 @@ func main() {
 	log.Println("Successfully connected to the database")
 	e := echo.New()
 
+	// Load the .env file
+	err = godotenv.Load()
+
+	if err!=nil {
+		log.Fatal("Error loading .env file")
+	}
 	// Assume db is your *sql.DB connection
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)
@@ -35,6 +41,7 @@ func main() {
 	// Grouping the API version
 	v1 := e.Group("/api/v1")
 	v1.POST("/auth/register", userHandler.Register)
+	v1.POST("/auth/login",userHandler.Login)
 	e.Logger.Fatal(e.Start(":8080"))
 
 	

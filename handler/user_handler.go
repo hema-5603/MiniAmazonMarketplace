@@ -39,3 +39,33 @@ return c.JSON(http.StatusCreated, map[string]interface{}{
 	},
 })
 }
+
+func (h *UserHandler) Login(c echo.Context)error{
+	var req models.LoginRequest
+
+	//1. Bind the JSON Payload
+	if err := c.Bind(&req); err!=nil{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success":"false",
+			"message":"Invalid request payload",
+		})
+	}
+
+	//2. Call the service
+	token, err:= h.service.Login(req)
+	if err!=nil{
+		fmt.Println("DB ERROR:",err)
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success":"false",
+			"message":err.Error(),
+		})
+	}
+
+	//3. Return the token to the user
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message":"Login Successful",
+		"data":map[string]string{
+			"token":token,
+		},
+	})
+}
