@@ -23,3 +23,9 @@ type LoginRequest struct{
 	Password string `json:"password" validate:"required,min=6"`
 }
 
+type UpdateProfileRequest struct{
+	Email string `json:"email"`
+	Password string `json:"password"`
+	Name string `json:"name"`
+	//Leave out "Role", so the users cannot promote themselves
+}

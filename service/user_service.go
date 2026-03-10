@@ -12,6 +12,7 @@ type UserService interface {
 	Register(req models.RegisterRequest) (*models.User, error)
 	Login(req models.LoginRequest) (string,error)
 	GetProfile(userID string) (*models.User, error)
+	UpdateProfile(userID string, req models.UpdateProfileRequest) (*models.User, error)
 }
 type userService struct {
 	repo repository.UserRepository
@@ -80,6 +81,44 @@ func (s *userService) GetProfile(userID string) (*models.User, error){
 
 	if err!=nil{
 		return nil, errors.New("User not found")
+	}
+	return user, nil
+}
+
+func (s *userService) UpdateProfile(userID string, req models.UpdateProfileRequest) (*models.User,error){
+	//1. Fetch the user's current data from the DB
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil{
+		return nil, errors.New("User not found")
+	}
+	//2. Check for Email duplication
+	if req.Email != "" && req.Email != user.Email{
+		existingUser, _ := s.repo.GetUserByEmail(req.Email)
+		if existingUser != nil{
+			return nil, errors.New("This Email is already in use by another account")
+		}
+		user.Email = req.Email
+	}
+
+	// 3. Update name
+	if req.Name != ""{
+		user.Name = req.Name
+	}
+
+	// 4. Update securely hash new password
+	if req.Password != ""{
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password),bcrypt.DefaultCost)
+		
+		if err != nil{
+			return nil, errors.New("Failed to secure new password")
+		}
+		user.PasswordHash = string(hashedPassword)
+	}
+
+	//5. Save the updated user back to the database
+	err = s.repo.UpdateUser(user)
+	if err != nil{
+		return nil, errors.New("Failed to update profile")
 	}
 	return user, nil
 }

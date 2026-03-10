@@ -9,6 +9,7 @@ type UserRepository interface {
 	CreateUser(user *models.User) error
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id string) (*models.User,error)
+	UpdateUser(user *models.User) error
 }
 
 type userRepository struct {
@@ -68,4 +69,12 @@ func (r *userRepository) GetUserByID(id string) (*models.User, error){
 	}
 
 	return user, nil
+}
+
+//Update profile
+func (r *userRepository) UpdateUser(user *models.User) error{
+	//Parameterized queries to prevent SQL injection
+	query := `UPDATE users SET email = ?, password_hash = ?, name = ? where id= ?`
+	_,err := r.db.Exec(query,user.Email,user.PasswordHash,user.Name,user.ID)
+	return err
 }
