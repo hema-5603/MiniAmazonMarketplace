@@ -8,6 +8,7 @@ import (
 	"user-service/service"
 
 	"github.com/labstack/echo/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 type UserHandler struct {
 	service service.UserService
@@ -70,5 +71,32 @@ func (h *UserHandler) Login(c echo.Context)error{
 		"data":map[string]string{
 			"token":token,
 		},
+	})
+}
+
+
+// Get profile
+func (h *UserHandler) GetProfile(c echo.Context) error{
+	//1. Extract the token placed in the context by the Echo JWT middleware
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+
+	//2. Grab the user_id which is embedded during login
+	userID := claims["user_id"].(string)
+
+	//3.Fetch the profile
+	user, err := h.service.GetProfile(userID)
+
+	if err != nil{
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success":false,
+			"message":err.Error(),
+		})
+	}
+
+	// 4. Return the data(password_hash will automatically hidden by the model struct)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":true,
+		"data":user,
 	})
 }
