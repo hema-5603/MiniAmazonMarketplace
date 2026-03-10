@@ -11,6 +11,7 @@ import (
 type UserService interface {
 	Register(req models.RegisterRequest) (*models.User, error)
 	Login(req models.LoginRequest) (string,error)
+	GetProfile(userID string) (*models.User, error)
 }
 type userService struct {
 	repo repository.UserRepository
@@ -70,4 +71,15 @@ func (s *userService) Login(req models.LoginRequest) (string, error){
 		return "", errors.New("Failed to generate token")
 	}
 	return tokenString,nil
+}
+
+// Get profile Information
+
+func (s *userService) GetProfile(userID string) (*models.User, error){
+	user, err := s.repo.GetUserByID(userID)
+
+	if err!=nil{
+		return nil, errors.New("User not found")
+	}
+	return user, nil
 }
