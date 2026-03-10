@@ -100,3 +100,40 @@ func (h *UserHandler) GetProfile(c echo.Context) error{
 		"data":user,
 	})
 }
+
+func (h *UserHandler) UpdateProfile(c echo.Context)error{
+	// 1. Securely extract the ID from the JWT token(IDOR prevention)
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userID := claims["user_id"].(string)
+
+	//2.Bind the incoming JSON
+	var req models.UpdateProfileRequest
+	if err := c.Bind(&req); err!=nil{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success":false,
+			"message":"Invalid request payload",
+		})
+	}
+
+	// 3. Pass to the service layer
+	updatedUser, err := h.service.UpdateProfile(userID,req)
+	if err != nil{
+		//return the 409 conflict for duplicate email error
+		if err.Error() == "This Email is already in use by another account"{
+			return c.JSON(http.StatusConflict, map[string]interface{}{
+				"success":false,
+				"message":err.Error(),
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success":false,
+			"message":err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message":"Profile updated successfully",
+		"data":updatedUser,
+	})
+}
