@@ -18,3 +18,8 @@ type RegisterRequest struct {
 	Role string `json:"role" validate:"required,oneof=CUSTOMER SELLER"`
 }
 
+type LoginRequest struct{
+	Email string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=6"`
+}
+

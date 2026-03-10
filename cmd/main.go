@@ -25,13 +25,14 @@ func main() {
 	//4. Initialize layers
 	// Assume db is your *sql.DB connection
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo,cfg.JWTSecret)
 	userHandler := handler.NewUserHandler(userService)
 
 	//5. Register public routes
 	// Grouping the API version
 	v1 := e.Group("/api/v1")
 	v1.POST("/auth/register", userHandler.Register)
+	v1.POST("/auth/login",userHandler.Login)
 	
 	//6. Start the server on the dynamic port
 	port := cfg.ServerPort
