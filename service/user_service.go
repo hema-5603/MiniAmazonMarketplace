@@ -25,6 +25,11 @@ func NewUserService(repo repository.UserRepository, secret string) UserService {
 	}
 }
 func (s *userService) Register(req models.RegisterRequest) (*models.User, error) {
+	// Check the email isn't already taken
+	existingUser, _ := s.repo.GetUserByEmail(req.Email)
+	if existingUser != nil{
+		return nil, errors.New("This email is already registered")
+	}
 	// 1. Hash the password securely
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
