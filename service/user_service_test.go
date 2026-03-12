@@ -133,4 +133,3 @@ func TestUpdateProfile_Success(t *testing.T){
 	mockRepo.AssertExpectations(t)
 
 }
-
