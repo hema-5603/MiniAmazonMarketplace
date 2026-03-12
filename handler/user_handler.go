@@ -20,14 +20,21 @@ func (h *UserHandler) Register(c echo.Context) error {
 	// 1. Bind JSON payload to the struct
 	if err := c.Bind(&req); err != nil {
 	return c.JSON(http.StatusBadRequest, map[string]interface{}{
-	"success": false,
-	"message": "Invalid request payload",
+		"success": false,
+		"message": "Invalid request payload",
 	})
 	}
 	// Run a validator here to check email format/password length
 	// 2. Call the Service layer
 	user, err := h.service.Register(req)
 	if err != nil {
+		//Duplicate email error
+		if err.Error() == "This email is already registered"{
+			return c.JSON(http.StatusConflict, map[string]interface{}{
+				"success":false,
+				"message": err.Error(),
+			})
+			}
 		fmt.Println("DB ERROR:",err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 		"success": false,
