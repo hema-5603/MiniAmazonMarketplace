@@ -8,6 +8,8 @@ import (
 type UserRepository interface {
 	CreateUser(user *models.User) error
 	GetUserByEmail(email string) (*models.User, error)
+	GetUserByID(id string) (*models.User,error)
+	UpdateUser(user *models.User) error
 }
 
 type userRepository struct {
@@ -46,3 +48,52 @@ func (r *userRepository) GetUserByEmail(email string) (*models.User, error){
 	return user, nil
 }
 
+func (r *userRepository) GetUserByEmail(email string) (*models.User, error){
+	user := &models.User{}
+
+	query := `SELECT id, email, password_hash, name, role FROM users WHERE email = ?`
+
+	//QueryRow executes the query and scans the result into the struct
+	err := r.db.QueryRow(query,email).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Name,
+		&user.Role,
+	)
+	if err != nil{
+		return nil, err //Returns the error if email doesn't found
+	}
+
+	return user, nil
+}
+
+func (r *userRepository) GetUserByID(id string) (*models.User, error){
+	user := &models.User{}
+
+	query := `SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE id = ?`
+
+	//QueryRow executes the query and scans the result into the struct
+	err := r.db.QueryRow(query,id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Name,
+		&user.Role,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil{
+		return nil, err //Returns the error if id doesn't found
+	}
+
+	return user, nil
+}
+
+//Update profile
+func (r *userRepository) UpdateUser(user *models.User) error{
+	//Parameterized queries to prevent SQL injection
+	query := `UPDATE users SET email = ?, password_hash = ?, name = ? where id= ?`
+	_,err := r.db.Exec(query,user.Email,user.PasswordHash,user.Name,user.ID)
+	return err
+}
