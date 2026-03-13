@@ -2,17 +2,27 @@ package main
 
 import (
 	"log"
+	"log/slog"
+	"os"
+	"time"
 	"user-service/config"
 	"user-service/handler"
 	"user-service/repository"
 	"user-service/service"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/labstack/echo/v4"
 	echojwt "github.com/labstack/echo-jwt/v4"
+	"github.com/labstack/echo/v4"
+	// "github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
+	//Initializing the standard JSON logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout,nil))
+	slog.SetDefault(logger)
+
+	slog.Info("")
+
 	//1. Load configurations
 	cfg := config.LoadConfig()
 
@@ -23,6 +33,36 @@ func main() {
 	//3. Initialize echo
 	e := echo.New()
 	
+	//Request Logging
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc{
+		return func(c echo.Context)error{
+			start := time.Now()
+
+			err:= next(c)
+			if err!= nil{
+				c.Error(err)
+			}
+			slog.Info("http request",
+				slog.String("method",c.Request().Method),
+				slog.String("uri",c.Request().RequestURI),
+				slog.Int("status",c.Response().Status),
+				slog.Duration("latency",time.Since(start)),
+			)
+			return nil		
+		}
+	})
+	// e.Use(middleware.RequestLoggerWithConfig(middleware.LoggerConfig{
+	// 	Format: `{
+	// 	"time":"${time_rfc3339}",
+	// 	"level":"INFO",
+	// 	"prefix":"echo"
+	// 	"method":"${method}",
+	// 	"uri":"${uri}",
+	// 	"status":${status},
+	// 	"error":"${error}",
+	// 	"latency_human":"${latency_human}"
+	// 	}`, + "\n"
+	// }))
 	//4. Initialize layers
 	// Assume db is your *sql.DB connection
 	userRepo := repository.NewUserRepository(db)

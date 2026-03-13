@@ -3,7 +3,8 @@ package config
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	_"github.com/go-sql-driver/mysql"
 )
@@ -16,13 +17,14 @@ func ConnectDB(cfg *Config) *sql.DB{
 	db,err := sql.Open("mysql",dsn) 
 
 	if err != nil{
-		log.Fatal("Failed to open DB connection",err)
+		slog.Error("Failed to open DB connection", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
 	//Checking the connection is alive
 	if err := db.Ping(); err!=nil{
-		log.Fatal("Failed to ping DB:",err)
+		slog.Error("Failed to ping DB:",slog.String("error",err.Error()))
 	}
-	log.Println("Successfully connected to the database")
+	slog.Info("Successfully connected to the database",slog.String("db_name",cfg.DBName))
 	return db
 }

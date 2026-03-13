@@ -1,6 +1,7 @@
 package service
 import (
 "errors"
+"log/slog"
 "time"
 "golang.org/x/crypto/bcrypt"
 "github.com/golang-jwt/jwt/v5"
@@ -28,12 +29,14 @@ func (s *userService) Register(req models.RegisterRequest) (*models.User, error)
 	// Check the email isn't already taken
 	existingUser, _ := s.repo.GetUserByEmail(req.Email)
 	if existingUser != nil{
+		slog.Warn("Registation failed: Email already exists",slog.String("email",req.Email))
 		return nil, errors.New("This email is already registered")
 	}
 	// 1. Hash the password securely
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-	return nil, errors.New("failed to hash password")
+		slog.Warn("Failed to hash password",slog.String("error",err.Error()))
+		return nil, errors.New("failed to hash password")
 	}
 	// 2. Create the User model
 	user := &models.User{
@@ -45,9 +48,12 @@ func (s *userService) Register(req models.RegisterRequest) (*models.User, error)
 	// 3. Save to database using the repository
 	err = s.repo.CreateUser(user)
 	if err != nil {
-	// to return a "Email already exists" message.
-	return nil, err
+		slog.Error("Database error during User creation",slog.String("error",err.Error()),slog.String("email",req.Email))
+		// to return a "Email already exists" message.
+		return nil, err
 	}
+	//Success log!
+	slog.Info("New user successfully registered",slog.String("user_id",user.ID), slog.String("role", user.Role))
 	return user, nil
 }
 
@@ -56,11 +62,13 @@ func (s *userService) Login(req models.LoginRequest) (string, error){
 	user, err := s.repo.GetUserByEmail(req.Email)
 	if err!= nil{
 		//Instead of directly telling the user not found, use generic message so hackers can't guess valid emails
+		slog.Warn("Login failed: User not found",slog.String("email",req.Email))
 		return "",errors.New("Invalid email or password")
 	}
 	// 2. Compare the provided password with the hash password
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err!= nil{
+		slog.Warn("Login failed: password",slog.String("email",req.Email))
 		return "", errors.New("Invalid email or password")
 	}
 
@@ -74,8 +82,10 @@ func (s *userService) Login(req models.LoginRequest) (string, error){
 	tokenString,err := token.SignedString([]byte(s.jwtSecret))
 
 	if err != nil{
+		slog.Error("Failed to generate JWT", slog.String("user_id",user.ID), slog.String("error",err.Error()))
 		return "", errors.New("Failed to generate token")
 	}
+	slog.Info("User logged in successfully", slog.String("user_id",user.ID))
 	return tokenString,nil
 }
 
@@ -85,8 +95,10 @@ func (s *userService) GetProfile(userID string) (*models.User, error){
 	user, err := s.repo.GetUserByID(userID)
 
 	if err!=nil{
+		slog.Warn("Profile fetch failed: User not found", slog.String("user_id",userID))
 		return nil, errors.New("User not found")
 	}
+	slog.Info("Profile fetched successfully", slog.String("user_id", userID))
 	return user, nil
 }
 
@@ -94,12 +106,14 @@ func (s *userService) UpdateProfile(userID string, req models.UpdateProfileReque
 	//1. Fetch the user's current data from the DB
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil{
+		slog.Warn("Update failed: User not found", slog.String("user_id",userID))
 		return nil, errors.New("User not found")
 	}
 	//2. Check for Email duplication
 	if req.Email != "" && req.Email != user.Email{
 		existingUser, _ := s.repo.GetUserByEmail(req.Email)
 		if existingUser != nil{
+			slog.Warn("Update failed: Email already in use", slog.String("user_id",userID), slog.String("attempted_email",req.Email))
 			return nil, errors.New("This Email is already in use by another account")
 		}
 		user.Email = req.Email
@@ -115,6 +129,7 @@ func (s *userService) UpdateProfile(userID string, req models.UpdateProfileReque
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password),bcrypt.DefaultCost)
 		
 		if err != nil{
+			slog.Error("Failed to hash new password", slog.String("user_id",userID), slog.String("error",err.Error()))
 			return nil, errors.New("Failed to secure new password")
 		}
 		user.PasswordHash = string(hashedPassword)
@@ -123,7 +138,9 @@ func (s *userService) UpdateProfile(userID string, req models.UpdateProfileReque
 	//5. Save the updated user back to the database
 	err = s.repo.UpdateUser(user)
 	if err != nil{
+		slog.Error("Database error during profile update",slog.String("user_id",userID), slog.String("error",err.Error()) )
 		return nil, errors.New("Failed to update profile")
 	}
+	slog.Info("User profile updated successfully", slog.String("user_id",userID))
 	return user, nil
 }
