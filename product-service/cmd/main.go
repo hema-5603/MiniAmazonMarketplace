@@ -74,7 +74,7 @@ func main() {
 	//6.3 Protected route
 	//Product 
 	protectedGroup.POST("/products",productHandler.CreateProduct)
-	
+	protectedGroup.PUT("/products/:id",productHandler.UpdateProduct)
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
 	if port == ""{
