@@ -4,12 +4,23 @@ services:
     image: mysql:8.0
     container_name: mam_user_db
     restart: always
-    environment:
-        MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-        MYSQL_DATABASE: ${DB_NAME} 
+    env_file:
+      - ./user-service/.env
     ports:
-      - "${DB_PORT}:3306"
+      - "3306:3306"
     volumes:
       - user_db_data:/var/lib/mysql
+
+  product_db:
+    image: mysql:8.0
+    container_name: mam_product_db
+    restart: always
+    env_file:
+      - ./product-service/.env
+    ports:
+      - "3307:3306"
+    volumes:
+      - product_db_data:/var/lib/mysql 
 volumes:
   user_db_data:
+  product_db_data:
