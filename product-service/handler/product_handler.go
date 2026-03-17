@@ -62,3 +62,55 @@ func (h *ProductHandler) CreateProduct(c echo.Context) error{
 		"data":product,
 	})
 }
+
+func (h *ProductHandler) UpdateProduct(c echo.Context) error{
+	// 1. Get the Product ID from the URL(/api/v1/products/:id)
+	productID := c.Param("id")
+
+	// 2. Extract user info from JWT
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	sellerID := claims["user_id"].(string)
+	role := claims["role"].(string)
+
+	// 3. Role-Based Access Control check
+	if role != "SELLER" && role != "ADMIN"{
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success" : false,
+			"message" : "Only sellers can update the products",
+		})
+	}
+
+	// 4. Bind Payload
+	var req models.UpdateProductRequest
+	if err := c.Bind(&req); err != nil{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success" : false,
+			"message" : "Invalid request payload",
+		})
+	}
+
+	// 5. Call Service
+	updatedProduct, err := h.service.UpdateProduct(productID, sellerID, req)
+	if err != nil{
+		status := http.StatusInternalServerError
+		if err.Error() == "Product not found"{
+			status = http.StatusNotFound
+		}else if err.Error() == "Unauthorized: You do not own this product"{
+			status = http.StatusForbidden
+		}else if err.Error() == "Invalid product data: Name and positive price are required"{
+			status = http.StatusBadRequest
+		}
+
+		return c.JSON(status, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK,map[string]interface{}{
+		"success" : true,
+		"message": "Product updated successfully",
+		"data" : updatedProduct,
+	})
+}
