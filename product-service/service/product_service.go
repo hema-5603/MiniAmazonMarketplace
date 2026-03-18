@@ -16,6 +16,8 @@ type ProductService interface{
 	UpdateProduct(productID string, sellerID string, req models.UpdateProductRequest) (*models.Product, error)
 	UpdateStock(productID string, sellerID string, req models.UpdateProductStockRequest) error
 	UpdateProductStatus(productID string, sellerID string, req models.UpdateStatusRequest) error
+
+	GetProducts(page, limit int, search, category string) (*models.PaginatedProductResponse, error)
 }
 
 type productService struct{
@@ -155,4 +157,47 @@ func (s *productService) UpdateProductStatus(productID string, sellerID string, 
 	}
 	slog.Info("Product status updated", slog.String("product_id",productID), slog.Bool("is_active", req.IsActive))
 	return nil
+}
+
+func (s *productService) GetProducts(page, limit int, search, category string) (*models.PaginatedProductResponse, error){
+	// 1. Fallback to safe defaults if inputs are weird
+	if page < 1{
+		page = 1
+	}
+	if limit < 1 || limit > 100{
+		limit = 10 // Max 100 items per page to protect the server
+	}
+
+	offset := (page - 1) * limit
+
+	// 2. Run queries concurrently or sequentially
+	totalItems, err := s.repo.CountProducts(search, category)
+	if err != nil{
+		return nil, err
+	}
+
+	products, err := s.repo.GetProducts(limit, offset, search, category)
+	if err != nil{
+		return nil, err
+	}
+
+	// 3. Prevent returning nil for empty arrays in JSON
+	if products == nil{
+		products = []models.Product{}
+	}
+
+	// 4. Calculate total pages (Ceiling division)
+	totalPages := int((totalItems + int64(limit) - 1) / int64(limit))
+
+	// 5. Build response
+	res := &models.PaginatedProductResponse{
+		Data: products,
+		Meta: models.PaginationMeta{
+			CurrentPage: page,
+			PageSize: limit,
+			TotalItems: totalItems,
+			TotalPages: totalPages,
+		},
+	}
+	return res, nil
 }

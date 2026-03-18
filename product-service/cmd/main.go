@@ -62,6 +62,10 @@ func main() {
 	// Grouping the API version
 	v1 := e.Group("/api/v1")
 	
+	// PUBLIC ROUTES 
+	publicGroup := v1.Group("")
+	publicGroup.GET("/products", productHandler.GetProducts)
+	
 	//6. Register protected routes
 	//6.1 Create the protected group for User routes
 	protectedGroup := v1.Group("")
