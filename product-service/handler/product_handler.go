@@ -114,3 +114,54 @@ func (h *ProductHandler) UpdateProduct(c echo.Context) error{
 		"data" : updatedProduct,
 	})
 }
+
+// Handler for updating the stock
+func (h *ProductHandler) UpdateStock(c echo.Context) error{
+	productID := c.Param("id")
+
+	// 1. Extract user info from JWT
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	sellerID := claims["user_id"].(string)
+	role := claims["role"].(string)
+
+	// 2. Role-Based Access Control
+	if role != "SELLER" && role != "ADMIN"{
+		return c.JSON(http.StatusForbidden,map[string]interface{}{
+			"success" : false,
+			"message" : "Access denied: Only sellers can update the product stock",
+		})
+	}
+
+	// 3. Bind payload
+	var req models.UpdateProductStockRequest
+	if err := c.Bind(&req); err != nil{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success" : false,
+			"message" : "Invalid request payload",
+		})
+	}
+
+	// 4. Call service
+	err := h.service.UpdateStock(productID, sellerID, req)
+	if err != nil{
+		status := http.StatusInternalServerError
+		if err.Error() == "Product not found"{
+			status = http.StatusNotFound
+		}else if err.Error() == "Unauthorized: You do not own this product"{
+			status = http.StatusForbidden
+		}else if err.Error() == "Invalid operation: Stock cannot be negative"{
+			status = http.StatusBadRequest
+		}
+
+		return c.JSON(status, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success" : true,
+		"message" : "Stock updated successfully",
+	})
+}

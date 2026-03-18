@@ -14,6 +14,7 @@ import (
 type ProductService interface{
 	CreateProduct(sellerID string, req models.CreateProductRequest) (*models.Product, error)
 	UpdateProduct(productID string, sellerID string, req models.UpdateProductRequest) (*models.Product, error)
+	UpdateStock(productID string, sellerID string, req models.UpdateProductStockRequest) error
 }
 
 type productService struct{
@@ -92,4 +93,39 @@ func (s* productService) UpdateProduct(productID string, sellerID string, req mo
 	}
 	slog.Info("Product updated successfully", slog.String("product_id",product.ID))
 	return product, nil
+}
+
+// Service for updating stock
+func (s *productService) UpdateStock(productID string, sellerID string, req models.UpdateProductStockRequest) error{
+	// 1. Prevent negative stocking
+	if req.Stock < 0 {
+		slog.Warn("Invalid stock update attempt", slog.Int("attempted_stock",req.Stock))
+		return errors.New("Invalid operation: Stock cannot be negative")
+	}
+
+	// 2. Fetch the product to check ownership
+	product, err := s.repo.GetProductByID(productID)
+	if err != nil{
+		return err
+	}
+
+	// 3. Resouce ownership check
+	if product.SellerID != sellerID{
+		slog.Warn("Unauthorized stock update attempt",
+				slog.String("product_id",productID),
+				slog.String("attempted_by", sellerID),
+				slog.String("actual_owner",product.SellerID),
+		)
+		return errors.New("Unauthorized: You do not own this product")
+	}
+
+	// 4. Update the stock
+	err = s.repo.UpdateStock(productID, req.Stock)
+	if err != nil{
+		slog.Error("Database error during stock update",slog.String("error",err.Error()))
+		return errors.New("Failed to update stock")
+	}
+
+	slog.Info("Stock updated successfully", slog.String("product_id",productID), slog.Int("new_stock",req.Stock))
+	return nil
 }

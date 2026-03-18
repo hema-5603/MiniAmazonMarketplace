@@ -30,3 +30,7 @@ type UpdateProductRequest struct{
 	Stock int `json:"stock"`
 	Category string `json:"category"`
 }
+
+type UpdateProductStockRequest struct{
+	Stock int `json:"stock"`
+}
