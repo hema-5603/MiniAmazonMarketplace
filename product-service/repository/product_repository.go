@@ -10,6 +10,7 @@ type ProductRepository interface{
 	CreateProduct(product *models.Product) error
 	GetProductByID(id string) (*models.Product, error)
 	UpdateProduct(*models.Product) error
+	UpdateStock(productID string, newStock int) error
 }
 
 type productRepository struct{
@@ -47,5 +48,12 @@ func (r *productRepository) GetProductByID(id string) (*models.Product, error){
 func (r *productRepository) UpdateProduct(p *models.Product)error{
 	query := `UPDATE products SET name = ?, description = ?,price = ?,stock = ?,category = ?,updated_at = ? WHERE id = ?`
 	_,err := r.db.Exec(query, p.Name, p.Description, p.Price, p.Stock, p.Category, p.UpdatedAt, p.ID)
+	return err
+}
+
+// Update the product stock
+func (r *productRepository) UpdateStock(productID string, newStock int) error{
+	query := `UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?`
+	_, err := r.db.Exec(query, newStock, productID)
 	return err
 }
