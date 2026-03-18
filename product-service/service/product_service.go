@@ -15,6 +15,7 @@ type ProductService interface{
 	CreateProduct(sellerID string, req models.CreateProductRequest) (*models.Product, error)
 	UpdateProduct(productID string, sellerID string, req models.UpdateProductRequest) (*models.Product, error)
 	UpdateStock(productID string, sellerID string, req models.UpdateProductStockRequest) error
+	UpdateProductStatus(productID string, sellerID string, req models.UpdateStatusRequest) error
 }
 
 type productService struct{
@@ -127,5 +128,31 @@ func (s *productService) UpdateStock(productID string, sellerID string, req mode
 	}
 
 	slog.Info("Stock updated successfully", slog.String("product_id",productID), slog.Int("new_stock",req.Stock))
+	return nil
+}
+
+func (s *productService) UpdateProductStatus(productID string, sellerID string, req models.UpdateStatusRequest) error{
+	// 1. Fetch to check ownership
+	product, err := s.repo.GetProductByID(productID)
+	if err != nil{
+		return err
+	}
+
+	// 2. Resource ownership check
+	if product.SellerID != sellerID{
+		slog.Warn("Unauthorized status update attempt",
+			slog.String("product_id", productID),
+			slog.String("attempted_by",sellerID),
+		)
+		return errors.New("Unauthorized: You do not own this product")
+	}
+
+	// 3. Update status
+	err = s.repo.UpdateProductStatus(productID, req.IsActive)
+	if err != nil{
+		slog.Error("Database error during status update", slog.String("error", err.Error()))
+		return errors.New("Failed to update product status")
+	}
+	slog.Info("Product status updated", slog.String("product_id",productID), slog.Bool("is_active", req.IsActive))
 	return nil
 }

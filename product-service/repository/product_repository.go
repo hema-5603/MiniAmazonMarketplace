@@ -11,6 +11,7 @@ type ProductRepository interface{
 	GetProductByID(id string) (*models.Product, error)
 	UpdateProduct(*models.Product) error
 	UpdateStock(productID string, newStock int) error
+	UpdateProductStatus(productID string, isActive bool) error
 }
 
 type productRepository struct{
@@ -30,11 +31,11 @@ func (r *productRepository) CreateProduct(p *models.Product) error{
 
 //Fetch a single product
 func (r *productRepository) GetProductByID(id string) (*models.Product, error){
-	query := `SELECT id, seller_id, name, description, price, stock, category, created_at, updated_at FROM products WHERE id=?`
+	query := `SELECT id, seller_id, name, description, price, stock, category, is_active, created_at, updated_at FROM products WHERE id=?`
 	row := r.db.QueryRow(query,id)
 
 	var p models.Product
-	err := row.Scan(&p.ID, &p.SellerID, &p.Name, &p.Description, &p.Price, &p.Stock, &p.Category, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.SellerID, &p.Name, &p.Description, &p.Price, &p.Stock, &p.Category,&p.IsActive, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil{
 		if errors.Is(err, sql.ErrNoRows){
 			return nil, errors.New("Product not found")
@@ -55,5 +56,12 @@ func (r *productRepository) UpdateProduct(p *models.Product)error{
 func (r *productRepository) UpdateStock(productID string, newStock int) error{
 	query := `UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?`
 	_, err := r.db.Exec(query, newStock, productID)
+	return err
+}
+
+// Deactivate the product
+func (r *productRepository) UpdateProductStatus(productID string, isActive bool) error{
+	query := `UPDATE products SET is_active = ?, updated_at = NOW() where id = ?`
+	_, err := r.db.Exec(query,isActive, productID)
 	return err
 }

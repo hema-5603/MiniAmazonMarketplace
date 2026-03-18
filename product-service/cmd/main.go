@@ -80,6 +80,9 @@ func main() {
 
 	// Update the product stock (/api/v1/products/:id/stock)
 	protectedGroup.PATCH("/products/:id/stock",productHandler.UpdateStock)
+
+	//Update the product status
+	protectedGroup.PATCH("/products/:id/status",productHandler.UpdateProductStatus)
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
 	if port == ""{
