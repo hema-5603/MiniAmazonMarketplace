@@ -34,3 +34,7 @@ type UpdateProductRequest struct{
 type UpdateProductStockRequest struct{
 	Stock int `json:"stock"`
 }
+
+type UpdateStatusRequest struct{
+	IsActive bool `json:"is_active"`
+}

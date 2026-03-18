@@ -165,3 +165,56 @@ func (h *ProductHandler) UpdateStock(c echo.Context) error{
 		"message" : "Stock updated successfully",
 	})
 }
+
+func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
+	productID := c.Param("id")
+
+	// 1. Extract user info from JWT
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	sellerID := claims["user_id"].(string)
+	role := claims["role"].(string)
+
+	// 2. Role-Based Access Check
+	if role != "SELLER" && role != "ADMIN"{
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"message": "Access denied: Only sellers can change product status",
+		})
+	}
+
+	// 3. Bind payload
+	var req models.UpdateStatusRequest
+	if err := c.Bind(&req); err != nil{
+		return c.JSON(http.StatusBadRequest,map[string]interface{}{
+			"success":false,
+			"message": "Invalid request payload",
+		})
+	}
+
+	// 4. Call service
+	err := h.service.UpdateProductStatus(productID, sellerID, req)
+	if err != nil{
+		status := http.StatusInternalServerError
+		if err.Error() == "Product not found"{
+			status = http.StatusNotFound
+		}else if err.Error() == "Unauthorized: You do not own this product"{
+			status = http.StatusForbidden
+		}
+
+		return c.JSON(status, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
+
+	statusMsg := "Product deactivated successfully"
+	if req.IsActive{
+		statusMsg = "Product activated successfully"
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success" : true,
+		"message" : statusMsg,
+	})
+}
