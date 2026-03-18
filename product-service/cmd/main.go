@@ -66,6 +66,7 @@ func main() {
 	publicGroup := v1.Group("")
 	publicGroup.GET("/products", productHandler.GetProducts)
 	
+	publicGroup.GET("/products/:id",productHandler.GetProductDetail)
 	//6. Register protected routes
 	//6.1 Create the protected group for User routes
 	protectedGroup := v1.Group("")
