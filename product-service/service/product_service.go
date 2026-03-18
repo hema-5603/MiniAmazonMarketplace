@@ -18,6 +18,7 @@ type ProductService interface{
 	UpdateProductStatus(productID string, sellerID string, req models.UpdateStatusRequest) error
 
 	GetProducts(page, limit int, search, category string) (*models.PaginatedProductResponse, error)
+	GetProductDetail(productID string) (*models.Product, error)
 }
 
 type productService struct{
@@ -200,4 +201,20 @@ func (s *productService) GetProducts(page, limit int, search, category string) (
 		},
 	}
 	return res, nil
+}
+
+func (s *productService) GetProductDetail(productID string) (*models.Product, error){
+	// Fetch the product
+	product, err := s.repo.GetProductByID(productID)
+	if err != nil{
+		return nil, err
+	}
+
+	// Hide deactivated products from the public
+	if !product.IsActive{
+		slog.Warn("Attempted to view deactivated product", slog.String("product_id", productID))
+		return nil, errors.New("Product not found")
+	}
+
+	return product, nil
 }

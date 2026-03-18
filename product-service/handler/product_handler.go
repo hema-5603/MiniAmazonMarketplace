@@ -252,3 +252,27 @@ func (h *ProductHandler) GetProducts(c echo.Context) error{
 		"meta": response.Meta,
 	})
 }
+
+func (h *ProductHandler) GetProductDetail(c echo.Context) error{
+	// 1. Get ID from the URL (/api/v1/products/:id)
+	productID := c.Param("id")
+	
+	// 2. Call service
+	product, err := h.service.GetProductDetail(productID)
+	if err != nil{
+		status := http.StatusInternalServerError
+		if err.Error() == "Product not found"{
+			status = http.StatusNotFound
+		}
+
+		return c.JSON(status, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
+	// 3. Return the product
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success" : true,
+		"data" : product,
+	})
+}
