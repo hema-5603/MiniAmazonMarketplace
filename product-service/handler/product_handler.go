@@ -3,6 +3,7 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"product-service/models"
 	"product-service/service"
@@ -216,5 +217,38 @@ func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success" : true,
 		"message" : statusMsg,
+	})
+}
+
+func (h *ProductHandler) GetProducts(c echo.Context) error{
+	// 1. Extract query paramaters
+	search := c.QueryParam("search")
+	category := c.QueryParam("category")
+
+	//Convert strings to integers with defaults
+	page, _ := strconv.Atoi(c.QueryParam("limit"))
+	if page == 0{
+		page = 1
+	}
+
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	if limit == 0{
+		limit = 10
+	}
+
+	// 2. Call service
+	response, err := h.service.GetProducts(page, limit, search, category)
+	if err != nil{
+		slog.Error("Failed to fetch products", slog.String("error",err.Error()))
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"message": "Failed to fetch products",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data": response.Data,
+		"meta": response.Meta,
 	})
 }

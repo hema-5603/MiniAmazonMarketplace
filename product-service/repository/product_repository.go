@@ -12,6 +12,9 @@ type ProductRepository interface{
 	UpdateProduct(*models.Product) error
 	UpdateStock(productID string, newStock int) error
 	UpdateProductStatus(productID string, isActive bool) error
+
+	GetProducts(limit, offset int, search, category string) ([]models.Product,error)
+	CountProducts(search, category string) (int64, error)
 }
 
 type productRepository struct{
@@ -64,4 +67,60 @@ func (r *productRepository) UpdateProductStatus(productID string, isActive bool)
 	query := `UPDATE products SET is_active = ?, updated_at = NOW() where id = ?`
 	_, err := r.db.Exec(query,isActive, productID)
 	return err
+}
+
+// Dynamic data fetcher
+func (r *productRepository) GetProducts(limit, offset int, search, category string) ([]models.Product,error){
+	// Enforce is_active = TRUE for the public catalog
+	query := `SELECT id, seller_id, name, description, price, stock, category, is_active, created_at, updated_at FROM products WHERE is_active = TRUE`
+
+	var args []interface{}
+
+	if search != ""{
+		query += `AND name LIKE ?`
+		args = append(args, "%"+search+"%") //Enables partial matching the user prompted name with the product name
+	}
+	if category != ""{
+		query += `AND category = ?`
+		args = append(args, category)
+	}
+
+	query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil{
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []models.Product
+	for rows.Next(){
+		var p models.Product
+		err := rows.Scan(&p.ID, &p.SellerID, &p.Name, &p.Description, &p.Price, &p.Stock, &p.Category, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+		if err != nil{
+			return nil, err
+		}
+		products = append(products, p)
+	}
+	return products, nil
+}
+
+// Counter for total pages
+func (r *productRepository) CountProducts(search, category string) (int64, error){
+	query := `SELECT COUNT(*) FROM products WHERE is_active = TRUE`
+	var args []interface{}
+
+	if search != ""{
+		query += `AND name LIKE ?`
+		args = append(args, "%"+search+"%")
+	}
+	if category != ""{
+		query += `AND category = ?`
+		args = append(args, category)
+	}
+
+	var count int64
+	err := r.db.QueryRow(query, args...).Scan(&count)
+	return count, err
 }
