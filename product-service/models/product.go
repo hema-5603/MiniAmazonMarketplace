@@ -52,3 +52,21 @@ type PaginatedProductResponse struct{
 	Data []Product `json:"data"`
 	Meta PaginationMeta `json:"meta"`
 }
+// Item structure received in the request
+type StockCheckItem struct{
+	ProductID string `json:"product_id"`
+	RequestedQuantity int `json:"requested_quantity"`
+}
+
+//Overall request payload
+type StockCheckRequest struct{
+	Items []StockCheckItem `json:"items"`
+}
+
+//Detailed result for each item
+type StockCheckResult struct{
+	ProductID string `json:"product_id"`
+	HasStock bool `json:"has_stock"`
+	CurrentStock int `json:current_stock"`
+	Message string `json:"message"`
+}

@@ -88,6 +88,10 @@ func main() {
 
 	//Update the product status
 	protectedGroup.PATCH("/products/:id/status",productHandler.UpdateProductStatus)
+
+
+	// Validate stock
+	publicGroup.POST("/products/validate-stock",productHandler.ValidateStock)
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
 	if port == ""{

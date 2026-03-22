@@ -276,3 +276,33 @@ func (h *ProductHandler) GetProductDetail(c echo.Context) error{
 		"data" : product,
 	})
 }
+
+func (h *ProductHandler) ValidateStock(c echo.Context) error{
+	var req models.StockCheckRequest
+
+	// 1.Bind payload
+	if err := c.Bind(&req); err != nil || len(req.Items) == 0{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success":false,
+			"message":"Invalid request payload or empty items array",
+		})
+	}
+
+	// 2.Call service
+	results, allAvailable, err := h.service.ValidateStock(req)
+	if err != nil{
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success":false,
+			"message":"An error occurred while validating stock",
+		})
+	}
+
+	// 3. Returning the detailed report
+		// Return 200 OK ,even if the stock is insufficient, because the request itself was successful
+		//"allAvailable" boolean tells whether we can proceed
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success":true,
+			"all_available":allAvailable,
+			"data":results,
+		})
+}
