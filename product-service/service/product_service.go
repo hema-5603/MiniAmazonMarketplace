@@ -19,6 +19,7 @@ type ProductService interface{
 
 	GetProducts(page, limit int, search, category string) (*models.PaginatedProductResponse, error)
 	GetProductDetail(productID string) (*models.Product, error)
+	ValidateStock(req models.StockCheckRequest) ([]models.StockCheckResult, bool, error)
 }
 
 type productService struct{
@@ -217,4 +218,47 @@ func (s *productService) GetProductDetail(productID string) (*models.Product, er
 	}
 
 	return product, nil
+}
+
+func (s *productService) ValidateStock(req models.StockCheckRequest)([]models.StockCheckResult, bool, error){
+	var results []models.StockCheckResult
+	allAvailable := true
+
+	for _, item := range req.Items{
+		slog.Warn("Validating item", slog.String("received_id", item.ProductID))
+		result := models.StockCheckResult{
+			ProductID: item.ProductID,
+			HasStock: false,
+		}
+
+		//Fetch the product
+		product, err := s.repo.GetProductByID(item.ProductID)
+		if err != nil{
+			result.Message = "Product not found"
+			allAvailable = false
+			results = append(results, result)
+			continue
+		}
+
+		//Check if it was deactivated 
+		if !product.IsActive{
+			result.Message = "Product is no longer available"
+			allAvailable = false
+			results = append(results, result)
+			continue
+		}
+
+		//Check the actual stock quantity
+		result.CurrentStock = product.Stock
+		if product.Stock < item.RequestedQuantity{
+			result.Message = "Insufficient stock"
+			allAvailable = false
+		}else {
+			result.HasStock = true
+			result.Message = "Stock available"
+		}
+
+		results = append(results, result)
+	}
+	return results, allAvailable, nil
 }
