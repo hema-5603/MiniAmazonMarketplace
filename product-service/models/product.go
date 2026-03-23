@@ -67,6 +67,6 @@ type StockCheckRequest struct{
 type StockCheckResult struct{
 	ProductID string `json:"product_id"`
 	HasStock bool `json:"has_stock"`
-	CurrentStock int `json:current_stock"`
+	CurrentStock int `json:"current_stock"`
 	Message string `json:"message"`
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"os"
 	"time"
@@ -33,6 +32,10 @@ func main() {
 	//3. Initialize echo
 	e := echo.New()
 	
+	// Request ID middleware
+	e.Use(middleware.RequestID())
+	e.Use(middleware.Recover())
+
 	//Request Logging
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc{
 		return func(c echo.Context)error{
@@ -42,7 +45,11 @@ func main() {
 			if err!= nil{
 				c.Error(err)
 			}
+			// Request ID in the http log
+			reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+
 			slog.Info("http request",
+				slog.String("request_id",reqID),
 				slog.String("method",c.Request().Method),
 				slog.String("uri",c.Request().RequestURI),
 				slog.Int("status",c.Response().Status),
@@ -97,6 +104,6 @@ func main() {
 	if port == ""{
 		port = "8081"
 	}
-	log.Printf("Starting server on port %s",port)
+	slog.Info("Starting product service",slog.String("port",port))
 	e.Logger.Fatal(e.Start(":"+port))
 }
