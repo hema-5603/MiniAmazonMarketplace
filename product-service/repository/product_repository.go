@@ -1,20 +1,21 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"product-service/models"
 )
 
 type ProductRepository interface{
-	CreateProduct(product *models.Product) error
-	GetProductByID(id string) (*models.Product, error)
-	UpdateProduct(*models.Product) error
-	UpdateStock(productID string, newStock int) error
-	UpdateProductStatus(productID string, isActive bool) error
+	CreateProduct(ctx context.Context, product *models.Product) error
+	GetProductByID(ctx context.Context, id string) (*models.Product, error)
+	UpdateProduct(ctx context.Context,p *models.Product) error
+	UpdateStock(ctx context.Context, productID string, newStock int) error
+	UpdateProductStatus(ctx context.Context, productID string, isActive bool) error
 
-	GetProducts(limit, offset int, search, category string) ([]models.Product,error)
-	CountProducts(search, category string) (int64, error)
+	GetProducts(ctx context.Context, limit, offset int, search, category string) ([]models.Product,error)
+	CountProducts(ctx context.Context, search, category string) (int64, error)
 }
 
 type productRepository struct{
@@ -25,17 +26,17 @@ func NewProductRepository(db *sql.DB) ProductRepository{
 	return &productRepository{db: db}
 }
 
-func (r *productRepository) CreateProduct(p *models.Product) error{
+func (r *productRepository) CreateProduct(ctx context.Context, p *models.Product) error{
 	query := `INSERT INTO products (id, seller_id, name, description, price, stock, category, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`
 
-	_, err := r.db.Exec(query, p.ID, p.SellerID, p.Name, p.Description, p.Price, p.Stock, p.Category, p.CreatedAt, p.UpdatedAt)
+	_, err := r.db.ExecContext(ctx,query, p.ID, p.SellerID, p.Name, p.Description, p.Price, p.Stock, p.Category, p.CreatedAt, p.UpdatedAt)
 	return err
 }
 
 //Fetch a single product
-func (r *productRepository) GetProductByID(id string) (*models.Product, error){
+func (r *productRepository) GetProductByID(ctx context.Context, id string) (*models.Product, error){
 	query := `SELECT id, seller_id, name, description, price, stock, category, is_active, created_at, updated_at FROM products WHERE id=?`
-	row := r.db.QueryRow(query,id)
+	row := r.db.QueryRowContext(ctx,query,id)
 
 	var p models.Product
 	err := row.Scan(&p.ID, &p.SellerID, &p.Name, &p.Description, &p.Price, &p.Stock, &p.Category,&p.IsActive, &p.CreatedAt, &p.UpdatedAt)
@@ -49,28 +50,28 @@ func (r *productRepository) GetProductByID(id string) (*models.Product, error){
 }
 
 //Update an existing product
-func (r *productRepository) UpdateProduct(p *models.Product)error{
+func (r *productRepository) UpdateProduct(ctx context.Context, p *models.Product)error{
 	query := `UPDATE products SET name = ?, description = ?,price = ?,stock = ?,category = ?,updated_at = ? WHERE id = ?`
-	_,err := r.db.Exec(query, p.Name, p.Description, p.Price, p.Stock, p.Category, p.UpdatedAt, p.ID)
+	_,err := r.db.ExecContext(ctx, query, p.Name, p.Description, p.Price, p.Stock, p.Category, p.UpdatedAt, p.ID)
 	return err
 }
 
 // Update the product stock
-func (r *productRepository) UpdateStock(productID string, newStock int) error{
+func (r *productRepository) UpdateStock(ctx context.Context, productID string, newStock int) error{
 	query := `UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?`
-	_, err := r.db.Exec(query, newStock, productID)
+	_, err := r.db.ExecContext(ctx, query, newStock, productID)
 	return err
 }
 
 // Deactivate the product
-func (r *productRepository) UpdateProductStatus(productID string, isActive bool) error{
+func (r *productRepository) UpdateProductStatus(ctx context.Context, productID string, isActive bool) error{
 	query := `UPDATE products SET is_active = ?, updated_at = NOW() where id = ?`
-	_, err := r.db.Exec(query,isActive, productID)
+	_, err := r.db.ExecContext(ctx, query,isActive, productID)
 	return err
 }
 
 // Dynamic data fetcher
-func (r *productRepository) GetProducts(limit, offset int, search, category string) ([]models.Product,error){
+func (r *productRepository) GetProducts(ctx context.Context, limit, offset int, search, category string) ([]models.Product,error){
 	// Enforce is_active = TRUE for the public catalog
 	query := `SELECT id, seller_id, name, description, price, stock, category, is_active, created_at, updated_at FROM products WHERE is_active = TRUE`
 
@@ -88,7 +89,7 @@ func (r *productRepository) GetProducts(limit, offset int, search, category stri
 	query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
-	rows, err := r.db.Query(query, args...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil{
 		return nil, err
 	}
@@ -107,7 +108,7 @@ func (r *productRepository) GetProducts(limit, offset int, search, category stri
 }
 
 // Counter for total pages
-func (r *productRepository) CountProducts(search, category string) (int64, error){
+func (r *productRepository) CountProducts(ctx context.Context, search, category string) (int64, error){
 	query := `SELECT COUNT(*) FROM products WHERE is_active = TRUE`
 	var args []interface{}
 
@@ -121,6 +122,6 @@ func (r *productRepository) CountProducts(search, category string) (int64, error
 	}
 
 	var count int64
-	err := r.db.QueryRow(query, args...).Scan(&count)
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
 	return count, err
 }

@@ -2,6 +2,12 @@ package models
 
 import "time"
 
+// ContextKey is a custom type to avoid context key collisions
+type ContextKey string
+const (
+	RequestIDKey ContextKey = "request_id"
+)
+
 type Product struct{
 	ID string `json:"id"`
 	SellerID string `json:"seller_id"`
