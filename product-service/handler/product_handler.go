@@ -257,7 +257,7 @@ func (h *ProductHandler) GetProducts(c echo.Context) error{
 	category := c.QueryParam("category")
 
 	//Convert strings to integers with defaults
-	page, _ := strconv.Atoi(c.QueryParam("limit"))
+	page, _ := strconv.Atoi(c.QueryParam("page"))
 	if page == 0{
 		page = 1
 	}
