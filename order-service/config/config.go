@@ -15,6 +15,7 @@ type Config struct{
 	DBName string
 	ServerPort string
 	JWTSecret string
+	ProductServiceURL string
 }
 
 //LoadConfig reads the .env file and populate the Config struct
@@ -33,5 +34,6 @@ func LoadConfig() *Config{
 		DBName: os.Getenv("DB_NAME"),
 		ServerPort: os.Getenv("SERVER_PORT"),
 		JWTSecret : os.Getenv("JWT_SECRET"),
+		ProductServiceURL: os.Getenv("PRODUCT_SERVICE_URL"),
 	}
 }

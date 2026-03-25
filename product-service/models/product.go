@@ -78,3 +78,13 @@ type StockCheckResult struct{
 	SellerID string `json:"seller_id"`
 	Message string `json:"message"`
 }
+
+type ReserveItem struct{
+	ProductID string `json:"product_id"`
+	Quantity int `json:"quantity"`
+}
+
+type ReserveStockRequest struct{
+	Items []ReserveItem `json:"items"`
+}
+

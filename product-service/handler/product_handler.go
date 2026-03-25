@@ -347,3 +347,29 @@ func (h *ProductHandler) ValidateStock(c echo.Context) error{
 			"data":results,
 		})
 }
+
+func (h *ProductHandler) ReserveStock(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
+	var req models.ReserveStockRequest
+	if err := c.Bind(&req); err != nil{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"message": "Invalid request payload",
+		})
+	}
+
+	err := h.service.ReserveStock(ctx, req)
+	if err != nil{
+		return c.JSON(http.StatusConflict, map[string]interface{}{  // 409 conflict
+			"success":false,
+			"message":err.Error(), 
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Stock reserved successfully",
+	})
+}
