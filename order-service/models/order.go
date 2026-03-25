@@ -43,3 +43,16 @@ type CheckoutRequest struct{
 	Items []CheckoutItem `json:"items"`
 }
 
+// Pagination meta information
+type PaginatedMeta struct{
+	CurrentPage int `json:"current_page"`
+	PageSize int `json:"page_size"`
+	TotalItems int 	`json:"total_items"`
+	TotalPages int `json:"total_pages"`
+}
+
+// Paginated response wrapper for order history
+type PaginatedOrderResponse struct{
+	Data []Order `json:"data"`
+	Meta PaginatedMeta `json:"meta"`
+}

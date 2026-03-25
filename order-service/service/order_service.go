@@ -16,6 +16,7 @@ import (
 type OrderService interface{
 	CreateOrder(ctx context.Context, userID string, req models.CheckoutRequest) (*models.Order, error)
 	GetOrderDetail(ctx context.Context, orderID string ,userID string) (*models.Order, error)
+	GetOrderHistory(ctx context.Context, userID string, page, limit int, status string) (*models.PaginatedOrderResponse, error)
 }
 
 type orderService struct{
@@ -158,4 +159,52 @@ func (s *orderService) GetOrderDetail(ctx context.Context, orderID string, userI
 
 	slog.Debug("Order detail fetched successfully", slog.String("request_id", reqID), slog.String("order_id", orderID))
 	return order, nil
+}
+
+func (s *orderService) GetOrderHistory(ctx context.Context, userID string, page, limit int, status string) (*models.PaginatedOrderResponse, error){
+	reqID, _ := ctx.Value(models.RequestIDKey).(string)
+
+	// 1. Sanitize pagination inputs
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50{
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	// 2. Execute DB queries
+	totalItems, err := s.repo.CountOrdersByUserID(ctx, userID, status)
+	if err != nil{
+		slog.Error("Failed to count orders", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return nil, errors.New("Failed to retrieve order history")
+	}
+
+	orders, err := s.repo.GetOrdersByUserID(ctx, userID, status, limit, offset)
+	if err != nil{
+		slog.Error("Failed to fetch order history", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return nil, errors.New("Failed to retrieve order history")
+	}
+
+	// Prevent returning `null`in JSON if the user has no orders
+	if orders == nil{
+		orders = []models.Order{}
+	}
+
+	// 3. Calculate total pages (Ceiling division trick in Go)
+	totalPages := int((totalItems + int64(limit) - 1) /int64(limit))
+
+	res := &models.PaginatedOrderResponse{
+		Data: orders,
+		Meta: models.PaginatedMeta{
+			CurrentPage: page,
+			PageSize: limit,
+			TotalItems: int(totalItems),
+			TotalPages: totalPages,
+		},
+	}
+
+	slog.Debug("Order history fetched successfully", slog.String("request_id", reqID), slog.String("user_id", userID))
+	return res, nil
 }
