@@ -30,7 +30,10 @@ func NewOrderService(repo repository.OrderRepository, productClient client.Produ
 }
 
 func (s *orderService) CreateOrder(ctx context.Context, userID string, req models.CheckoutRequest) (*models.Order, error){
+	reqID, _ := ctx.Value(models.RequestIDKey).(string) 
+	
 	if len(req.Items) == 0 {
+		slog.Warn("Checkout attempted with empty cart", slog.String("request_id", reqID), slog.String("user_id", userID))
 		return nil, errors.New("Couldn't create an order with an empty cart")
 	}
 
@@ -42,6 +45,7 @@ func (s *orderService) CreateOrder(ctx context.Context, userID string, req model
 
 	// 2. Hard block if any items is out of stock or deactivated
 	if !validationResp.AllAvailable{
+		slog.Warn("Checkout rejected: Item unavailable", slog.String("request_id", reqID), slog.String("user_id", userID))
 		return nil, errors.New("One or more items in your cart are out of stock or unavailable")
 	}
 
@@ -67,9 +71,20 @@ func (s *orderService) CreateOrder(ctx context.Context, userID string, req model
 	for _, reqItem := range req.Items{
 		trueData, exists := truthMap[reqItem.ProductID]
 		if !exists{
+			slog.Warn("Product validation mismatch", slog.String("request_id", reqID), slog.String("product_id", reqItem.ProductID))
 			return nil, errors.New("Mismatch in product validation")
 		}
 
+		// The price mismatch check
+		if reqItem.Price != trueData.Price{
+			slog.Warn("Price mismatched during checkout",
+				slog.String("request_id", reqID),
+				slog.String("product_id", reqItem.ProductID),
+				slog.Float64("cart_price", reqItem.Price),
+				slog.Float64("actual_price", trueData.Price),
+			)
+			return nil, errors.New("The Price of one or more items has changed.")
+		}
 		lineItemTotal := trueData.Price * float64(reqItem.Quantity)
 		totalAmount += lineItemTotal
 
@@ -98,14 +113,20 @@ func (s *orderService) CreateOrder(ctx context.Context, userID string, req model
 	err = s.productClient.ReserveStock(ctx, req.Items)
 	if err != nil{
 		// The product service blocked it
+		slog.Warn("Checkout blocked during reservation", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return nil, errors.New("Checkout failed during inventory reservation: " + err.Error())
 	}
 	// 4. Call the repository which triggers the SQL transaction
 	err = s.repo.CreateOrder(ctx, order)
 	if err != nil{
-		slog.Error("Failed to save order after reserving stock", slog.String("order_id",orderID))
-		return nil , err
+		slog.Error("Failed to save order after reserving stock", slog.String("request_id", reqID), slog.String("order_id",orderID), slog.String("error", err.Error()))
+		return nil , errors.New("System error occurred while finalizing your order")
 	}
 
+	slog.Info("Order created successfully", 
+			 slog.String("request_id", reqID), 
+			 slog.String("order_id",orderID),
+			 slog.String("user_id", userID),
+			)
 	return order, nil
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -45,6 +46,7 @@ func NewProductClient(baseURL string) ProductClient{
 }
 
 func (c *productClient) ValidateCart(ctx context.Context, items []models.CheckoutItem) (*ProductValidationResponse, error){
+	reqID, _ := ctx.Value(models.RequestIDKey).(string)
 	// 1. Prepare the payload
 	payload := map[string]interface{}{
 		"items" : items,
@@ -60,20 +62,25 @@ func (c *productClient) ValidateCart(ctx context.Context, items []models.Checkou
 
 	req.Header.Set("Content-Type", "application/json")
 
+	slog.Debug("Calling product service to validate cart", slog.String("request_id", reqID))
+
 	// 3. Execute the request
 	resp, err := c.httpClient.Do(req)
 	if err != nil{
+		slog.Error("Product service HTTP call failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return nil, errors.New("Product service is currently unavailable")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK{
+		slog.Warn("Product service return failure status", slog.String("request_id", reqID), slog.Int("status", resp.StatusCode))
 		return nil, fmt.Errorf("Product service returned status: %d", resp.StatusCode)
 	}
 
 	// 4. Decode the response
 	var result ProductValidationResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil{
+		slog.Error("Failed to decode product service response", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return nil, errors.New("Failed to decode product service response")
 	}
 
@@ -81,6 +88,8 @@ func (c *productClient) ValidateCart(ctx context.Context, items []models.Checkou
 }
 
 func (c *productClient) ReserveStock(ctx context.Context, items []models.CheckoutItem) error{
+	reqID, _ := ctx.Value(models.RequestIDKey).(string)
+
 	// Map the checkout items to the payload expected by the product service
 	var reserveItems []map[string]interface{}
 	for _, item := range items{
@@ -102,8 +111,11 @@ func (c *productClient) ReserveStock(ctx context.Context, items []models.Checkou
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	slog.Info("Calling product service to reserve stock", slog.String("request_id", reqID))
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil{
+		slog.Error("Product service HTTP call failed during reservation", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return errors.New("Product service is currently unavailable")
 	}
 	defer resp.Body.Close()
@@ -113,7 +125,10 @@ func (c *productClient) ReserveStock(ctx context.Context, items []models.Checkou
 		var errorResponse map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&errorResponse)
 		msg, _ := errorResponse["message"].(string)
+
+		slog.Warn("Stock reservation rejected by product service", slog.String("request_id", reqID), slog.String("reason", msg))
 		return errors.New(msg)
 	}
+	slog.Info("Stock reserved successfully", slog.String("request_id", reqID))
 	return nil
 }
