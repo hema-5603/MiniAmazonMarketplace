@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"order-service/models"
 	"order-service/service"
@@ -92,4 +93,43 @@ func (h *OrderHandler) GetOrderDetail(c echo.Context) error{
 		"success" : true,
 		"data" : order,
  	})
+}
+
+func (h *OrderHandler) GetOrderHistory(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
+	// 1. Extract userID from JWT
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userID := claims["user_id"].(string)
+
+	// 2. Parse query parameters
+	status := c.QueryParam("status")
+
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	if page == 0 {
+		page = 1
+	}
+
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	if limit == 0 {
+		limit = 10
+	}
+
+	// 3. Call service
+	response, err := h.service.GetOrderHistory(ctx, userID, page, limit, status)
+	if err != nil{
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
+
+	// 4. Return data
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success" : true,
+		"data" : response.Data,
+		"meta" : response.Meta,
+	})
 }

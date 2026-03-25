@@ -89,6 +89,9 @@ func main() {
 	// Checkout endpoint
 	protectedGroup.POST("/orders/checkout",orderHandler.Checkout)
 
+	// Get order history 
+	protectedGroup.GET("/orders", orderHandler.GetOrderHistory)
+
 	// Get order detail
 	protectedGroup.GET("/orders/:id", orderHandler.GetOrderDetail)
 

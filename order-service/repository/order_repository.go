@@ -12,6 +12,8 @@ import (
 type OrderRepository interface{
 	CreateOrder(ctx context.Context, order *models.Order) error
 	GetOrderByID(ctx context.Context, orderID string) (*models.Order, error)
+	CountOrdersByUserID(ctx context.Context, userID string, status string) (int64, error)
+	GetOrdersByUserID(ctx context.Context, userID string, status string, limit, offset int) ([]models.Order, error)
 }
 
 type orderRepository struct{
@@ -139,4 +141,54 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, orderID string) (*mo
 	order.Items = items
 
 	return &order, nil
+}
+
+func (r *orderRepository) CountOrdersByUserID(ctx context.Context, userID string, status string) (int64, error){
+	query := `SELECT COUNT(*) FROM orders WHERE user_id = ? `
+	args := []interface{}{userID}
+
+	if status != ""{
+		query += `AND status = ? `
+		args = append(args, status)
+	}
+
+	var count int64
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	return count, err
+}
+
+func (r *orderRepository) GetOrdersByUserID(ctx context.Context, userID string, status string, limit, offset int) ([]models.Order, error){
+	query := `SELECT id, user_id, total_amount, status, created_at, updated_at FROM orders WHERE user_id = ? `
+	args := []interface{}{userID}
+
+	//Dynamically append the status filter if the user provided one
+	if status != ""{
+		query += `AND status = ? `
+		args = append(args, status)
+	}
+
+	// Always order by newest first
+	query += `ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil{
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var orders []models.Order
+	for rows.Next(){
+		var o models.Order
+		err := rows.Scan(&o.ID, &o.UserID, &o.TotalAmount, &o.Status, &o.CreatedAt, &o.UpdatedAt)
+		if err != nil{
+			return nil, err
+		}
+
+		// Initialize empty items array so it returns `[]` in JSON instead of `null`
+		o.Items = []models.OrderItem{}
+		orders = append(orders, o)
+	}
+	return orders, nil
 }
