@@ -51,18 +51,6 @@ func main() {
 			return nil		
 		}
 	})
-	// e.Use(middleware.RequestLoggerWithConfig(middleware.LoggerConfig{
-	// 	Format: `{
-	// 	"time":"${time_rfc3339}",
-	// 	"level":"INFO",
-	// 	"prefix":"echo"
-	// 	"method":"${method}",
-	// 	"uri":"${uri}",
-	// 	"status":${status},
-	// 	"error":"${error}",
-	// 	"latency_human":"${latency_human}"
-	// 	}`, + "\n"
-	// }))
 	//4. Initialize layers
 	// Assume db is your *sql.DB connection
 	userRepo := repository.NewUserRepository(db)
@@ -77,17 +65,17 @@ func main() {
 	
 	//6. Register protected routes
 	//6.1 Create the protected group for User routes
-	usersGroup := v1.Group("/users")
+	protectedGroup := v1.Group("")
 
 	//6.2 Apply the JWT middleware
-	usersGroup.Use(echojwt.WithConfig(echojwt.Config{
+	protectedGroup.Use(echojwt.WithConfig(echojwt.Config{
 		SigningKey: []byte(cfg.JWTSecret),
 	}))
 
 	//6.3 Protected route
-	usersGroup.GET("/profile",userHandler.GetProfile)
-	usersGroup.PUT("/profile",userHandler.UpdateProfile)
-
+	protectedGroup.GET("users/profile",userHandler.GetProfile)
+	protectedGroup.PUT("users/profile",userHandler.UpdateProfile)
+	
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
 	if port == ""{
