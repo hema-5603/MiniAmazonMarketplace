@@ -79,7 +79,6 @@ func main() {
 	}))
 
 	//6.3 Protected route
-	//Create a Product ("/api/v1/products")
 	protectedGroup.POST("/orders/checkout",orderHandler.Checkout)
 
 	//7. Start the server on the dynamic port
