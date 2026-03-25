@@ -11,6 +11,7 @@ import (
 
 type OrderRepository interface{
 	CreateOrder(ctx context.Context, order *models.Order) error
+	GetOrderByID(ctx context.Context, orderID string) (*models.Order, error)
 }
 
 type orderRepository struct{
@@ -100,3 +101,42 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *models.Order) 
 	return nil
 }
 
+func (r *orderRepository) GetOrderByID(ctx context.Context, orderID string) (*models.Order, error){
+	// 1. Fetch the parent order
+	orderQuery := `SELECT id, user_id, total_amount, status, created_at, updated_at FROM orders where id = ?`
+
+	row := r.db.QueryRowContext(ctx, orderQuery, orderID)
+
+	var order models.Order
+	err := row.Scan(&order.ID, &order.UserID, &order.TotalAmount, &order.Status, &order.CreatedAt, &order.UpdatedAt)
+	if err != nil{
+		if errors.Is(err, sql.ErrNoRows){
+			return nil, errors.New("Order not found")
+		}
+		return nil, err
+	}
+
+	// 2. Fetch the associated order items
+	itemsQuery := `SELECT id, order_id, product_id, seller_id, quantity, price FROM order_items WHERE order_id = ?`
+	
+	rows, err := r.db.QueryContext(ctx, itemsQuery, orderID)
+	if err != nil{
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.OrderItem
+	for rows.Next(){
+		var item models.OrderItem
+		err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.SellerID, &item.Quantity, &item.Price)
+		if err != nil{
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	// 3. Attach the item to the parent order
+	order.Items = items
+
+	return &order, nil
+}

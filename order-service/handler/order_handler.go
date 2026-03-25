@@ -57,3 +57,39 @@ func (h *OrderHandler) Checkout(c echo.Context) error{
 		"data" : order,
 	})
 }
+
+
+func (h *OrderHandler) GetOrderDetail(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
+	// 1. Extract order ID from the URL (/api/v1/orders/:id)
+	orderID := c.Param("id")
+
+	// 2. Extract User ID from the JWT
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userID := claims["user_id"].(string)
+
+	// 3. Call the service
+	order, err := h.service.GetOrderDetail(ctx, orderID, userID)
+	if err != nil{
+		status := http.StatusInternalServerError
+		if err.Error() == "Order not found"{
+			status = http.StatusNotFound
+		}else if err.Error() == "Unauthorized: You do not own this order"{
+			status = http.StatusForbidden
+		}
+
+		return c.JSON(status, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
+
+	// 4. Return success
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success" : true,
+		"data" : order,
+ 	})
+}
