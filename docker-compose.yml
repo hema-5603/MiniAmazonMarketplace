@@ -21,6 +21,20 @@ services:
       - "3307:3306"
     volumes:
       - product_db_data:/var/lib/mysql 
+    
+  #Order service database
+  order_db:
+    image: mysql:8.0
+    container_name: mam_order_db
+    restart: always
+    env_file:
+      - ./order-service/.env
+    ports:
+      - "3308:3306"
+    volumes:
+      - order_db_data:/var/lib/mysql
+
 volumes:
   user_db_data:
   product_db_data:
+  order_db_data:
