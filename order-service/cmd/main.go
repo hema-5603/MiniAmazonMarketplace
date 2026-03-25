@@ -85,7 +85,12 @@ func main() {
 	}))
 
 	//6.3 Protected route
+
+	// Checkout endpoint
 	protectedGroup.POST("/orders/checkout",orderHandler.Checkout)
+
+	// Get order detail
+	protectedGroup.GET("/orders/:id", orderHandler.GetOrderDetail)
 
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort

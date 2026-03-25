@@ -15,6 +15,7 @@ import (
 
 type OrderService interface{
 	CreateOrder(ctx context.Context, userID string, req models.CheckoutRequest) (*models.Order, error)
+	GetOrderDetail(ctx context.Context, orderID string ,userID string) (*models.Order, error)
 }
 
 type orderService struct{
@@ -107,5 +108,33 @@ func (s *orderService) CreateOrder(ctx context.Context, userID string, req model
 		return nil , err
 	}
 
+	return order, nil
+}
+
+func (s *orderService) GetOrderDetail(ctx context.Context, orderID string, userID string) (*models.Order, error){
+	reqID, _ := ctx.Value(models.RequestIDKey).(string)
+
+	// Fetch the product from the database 
+	order, err := s.repo.GetOrderByID(ctx, orderID)
+	if err != nil{
+		if err.Error() == "Order not found" {
+			return nil, err // Pass 404
+		}
+		slog.Error("Database error fetching order", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return nil, errors.New("Failed to retrieve order")
+	}
+
+	// Resource ownership check
+	// Block the user who tries to guess another user's orderID
+	if order.UserID != userID{
+		slog.Warn("Unauthorized order access attempt",
+				slog.String("request_id", reqID),
+				slog.String("attempted_by_user", userID),
+				slog.String("order_owner", order.UserID),
+			)
+			return nil, errors.New("Unauthorized: You do not own this order")
+	}
+
+	slog.Debug("Order detail fetched successfully", slog.String("request_id", reqID), slog.String("order_id", orderID))
 	return order, nil
 }
