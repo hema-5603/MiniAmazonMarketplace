@@ -32,6 +32,6 @@ func LoadConfig() *Config{
 		DBPort: os.Getenv("DB_PORT"),
 		DBName: os.Getenv("DB_NAME"),
 		ServerPort: os.Getenv("SERVER_PORT"),
-		JWTSecret : os.Getenv("jwtSecKey"),
+		JWTSecret : os.Getenv("JWT_SECRET"),
 	}
 }

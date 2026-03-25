@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -23,6 +24,9 @@ func NewProductHandler(service service.ProductService) *ProductHandler{
 }
 
 func (h *ProductHandler) CreateProduct(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
 	// 1. Extract the user info from the JWT
 	userToken := c.Get("user").(*jwt.Token)
 	claims := userToken.Claims.(jwt.MapClaims)
@@ -31,7 +35,7 @@ func (h *ProductHandler) CreateProduct(c echo.Context) error{
 
 	// 2. Role-Based Access Control
 	if role != "SELLER" && role != "ADMIN"{
-		slog.Warn("Unauthorized product creation attempt", slog.String("user_id", sellerID), slog.String("role",role))
+		slog.Warn("Unauthorized product creation attempt", slog.String("request_id", reqID), slog.String("user_id", sellerID), slog.String("role",role))
 		return c.JSON(http.StatusForbidden, map[string]interface{}{
 			"success":false,
 			"message":"Access denied: Only seller can create the products",
@@ -41,15 +45,15 @@ func (h *ProductHandler) CreateProduct(c echo.Context) error{
 	// 3. Parse JSON payload
 	var req models.CreateProductRequest
 	if err := c.Bind(&req); err!=nil{
-		slog.Warn("Invalid product payload", slog.String("error", err.Error()))
+		slog.Warn("Invalid product payload", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"success":false,
+			"success": false,
 			"message": "Invalid request payload",
 		})
 	}
 
 	// 4.Pass to service
-	product, err := h.service.CreateProduct(sellerID, req)
+	product, err := h.service.CreateProduct(ctx,sellerID, req)
 	if err != nil{
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success":false,
@@ -65,6 +69,9 @@ func (h *ProductHandler) CreateProduct(c echo.Context) error{
 }
 
 func (h *ProductHandler) UpdateProduct(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
 	// 1. Get the Product ID from the URL(/api/v1/products/:id)
 	productID := c.Param("id")
 
@@ -76,6 +83,7 @@ func (h *ProductHandler) UpdateProduct(c echo.Context) error{
 
 	// 3. Role-Based Access Control check
 	if role != "SELLER" && role != "ADMIN"{
+		slog.Warn("Unauthorized product updation attempt", slog.String("request_id", reqID), slog.String("user_id", sellerID), slog.String("role",role))
 		return c.JSON(http.StatusForbidden, map[string]interface{}{
 			"success" : false,
 			"message" : "Only sellers can update the products",
@@ -85,6 +93,7 @@ func (h *ProductHandler) UpdateProduct(c echo.Context) error{
 	// 4. Bind Payload
 	var req models.UpdateProductRequest
 	if err := c.Bind(&req); err != nil{
+		slog.Warn("Invalid product update payload", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success" : false,
 			"message" : "Invalid request payload",
@@ -92,7 +101,7 @@ func (h *ProductHandler) UpdateProduct(c echo.Context) error{
 	}
 
 	// 5. Call Service
-	updatedProduct, err := h.service.UpdateProduct(productID, sellerID, req)
+	updatedProduct, err := h.service.UpdateProduct(ctx, productID, sellerID, req)
 	if err != nil{
 		status := http.StatusInternalServerError
 		if err.Error() == "Product not found"{
@@ -103,6 +112,9 @@ func (h *ProductHandler) UpdateProduct(c echo.Context) error{
 			status = http.StatusBadRequest
 		}
 
+		if status == http.StatusInternalServerError{
+			slog.Error("Failed to update product", slog.String("request_id", reqID), slog.String("product_id",productID), slog.String("error",err.Error()))
+		}
 		return c.JSON(status, map[string]interface{}{
 			"success" : false,
 			"message" : err.Error(),
@@ -118,6 +130,9 @@ func (h *ProductHandler) UpdateProduct(c echo.Context) error{
 
 // Handler for updating the stock
 func (h *ProductHandler) UpdateStock(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+	
 	productID := c.Param("id")
 
 	// 1. Extract user info from JWT
@@ -128,6 +143,7 @@ func (h *ProductHandler) UpdateStock(c echo.Context) error{
 
 	// 2. Role-Based Access Control
 	if role != "SELLER" && role != "ADMIN"{
+		slog.Warn("Unauthorized product stock updation attempt", slog.String("user_id", sellerID), slog.String("role",role))
 		return c.JSON(http.StatusForbidden,map[string]interface{}{
 			"success" : false,
 			"message" : "Access denied: Only sellers can update the product stock",
@@ -137,6 +153,7 @@ func (h *ProductHandler) UpdateStock(c echo.Context) error{
 	// 3. Bind payload
 	var req models.UpdateProductStockRequest
 	if err := c.Bind(&req); err != nil{
+		slog.Warn("Invalid product payload", slog.String("error", err.Error()))
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success" : false,
 			"message" : "Invalid request payload",
@@ -144,7 +161,7 @@ func (h *ProductHandler) UpdateStock(c echo.Context) error{
 	}
 
 	// 4. Call service
-	err := h.service.UpdateStock(productID, sellerID, req)
+	err := h.service.UpdateStock(ctx, productID, sellerID, req)
 	if err != nil{
 		status := http.StatusInternalServerError
 		if err.Error() == "Product not found"{
@@ -154,7 +171,9 @@ func (h *ProductHandler) UpdateStock(c echo.Context) error{
 		}else if err.Error() == "Invalid operation: Stock cannot be negative"{
 			status = http.StatusBadRequest
 		}
-
+		if status == http.StatusInternalServerError{
+			slog.Error("Failed to update stock", slog.String("product_id",productID), slog.String("error",err.Error()))
+		}
 		return c.JSON(status, map[string]interface{}{
 			"success" : false,
 			"message" : err.Error(),
@@ -168,6 +187,9 @@ func (h *ProductHandler) UpdateStock(c echo.Context) error{
 }
 
 func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
 	productID := c.Param("id")
 
 	// 1. Extract user info from JWT
@@ -178,6 +200,7 @@ func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
 
 	// 2. Role-Based Access Check
 	if role != "SELLER" && role != "ADMIN"{
+		slog.Warn("Unauthorized product status updation attempt", slog.String("request_id", reqID), slog.String("user_id", sellerID), slog.String("role",role))
 		return c.JSON(http.StatusForbidden, map[string]interface{}{
 			"success": false,
 			"message": "Access denied: Only sellers can change product status",
@@ -187,6 +210,7 @@ func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
 	// 3. Bind payload
 	var req models.UpdateStatusRequest
 	if err := c.Bind(&req); err != nil{
+		slog.Warn("Invalid product status payload",slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return c.JSON(http.StatusBadRequest,map[string]interface{}{
 			"success":false,
 			"message": "Invalid request payload",
@@ -194,13 +218,17 @@ func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
 	}
 
 	// 4. Call service
-	err := h.service.UpdateProductStatus(productID, sellerID, req)
+	err := h.service.UpdateProductStatus(ctx, productID, sellerID, req)
 	if err != nil{
 		status := http.StatusInternalServerError
 		if err.Error() == "Product not found"{
 			status = http.StatusNotFound
 		}else if err.Error() == "Unauthorized: You do not own this product"{
 			status = http.StatusForbidden
+		}
+
+		if status == http.StatusInternalServerError{
+			slog.Error("Failed to update status", slog.String("request_id", reqID), slog.String("product_id",productID), slog.String("error",err.Error()))
 		}
 
 		return c.JSON(status, map[string]interface{}{
@@ -221,12 +249,15 @@ func (h *ProductHandler) UpdateProductStatus(c echo.Context)error{
 }
 
 func (h *ProductHandler) GetProducts(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
 	// 1. Extract query paramaters
 	search := c.QueryParam("search")
 	category := c.QueryParam("category")
 
 	//Convert strings to integers with defaults
-	page, _ := strconv.Atoi(c.QueryParam("limit"))
+	page, _ := strconv.Atoi(c.QueryParam("page"))
 	if page == 0{
 		page = 1
 	}
@@ -237,9 +268,9 @@ func (h *ProductHandler) GetProducts(c echo.Context) error{
 	}
 
 	// 2. Call service
-	response, err := h.service.GetProducts(page, limit, search, category)
+	response, err := h.service.GetProducts(ctx, page, limit, search, category)
 	if err != nil{
-		slog.Error("Failed to fetch products", slog.String("error",err.Error()))
+		slog.Error("Failed to fetch products", slog.String("request_id", reqID), slog.String("error",err.Error()))
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
 			"message": "Failed to fetch products",
@@ -254,15 +285,20 @@ func (h *ProductHandler) GetProducts(c echo.Context) error{
 }
 
 func (h *ProductHandler) GetProductDetail(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
 	// 1. Get ID from the URL (/api/v1/products/:id)
 	productID := c.Param("id")
 	
 	// 2. Call service
-	product, err := h.service.GetProductDetail(productID)
+	product, err := h.service.GetProductDetail(ctx, productID)
 	if err != nil{
 		status := http.StatusInternalServerError
 		if err.Error() == "Product not found"{
 			status = http.StatusNotFound
+		}else{
+			slog.Error("Failed to fetch product detail", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		}
 
 		return c.JSON(status, map[string]interface{}{
@@ -278,10 +314,14 @@ func (h *ProductHandler) GetProductDetail(c echo.Context) error{
 }
 
 func (h *ProductHandler) ValidateStock(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
 	var req models.StockCheckRequest
 
 	// 1.Bind payload
 	if err := c.Bind(&req); err != nil || len(req.Items) == 0{
+		slog.Warn("Invalid product payload or empty items array", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success":false,
 			"message":"Invalid request payload or empty items array",
@@ -289,8 +329,9 @@ func (h *ProductHandler) ValidateStock(c echo.Context) error{
 	}
 
 	// 2.Call service
-	results, allAvailable, err := h.service.ValidateStock(req)
+	results, allAvailable, err := h.service.ValidateStock(ctx, req)
 	if err != nil{
+		slog.Error("Error durings stock validation", slog.String("request_id", reqID), slog.String("error", err.Error()))
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success":false,
 			"message":"An error occurred while validating stock",
