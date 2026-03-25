@@ -99,6 +99,9 @@ func main() {
 
 	// Validate stock
 	publicGroup.POST("/products/validate-stock",productHandler.ValidateStock)
+
+	// Reserve stock
+	publicGroup.POST("/products/reserve-stock",productHandler.ReserveStock)
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
 	if port == ""{

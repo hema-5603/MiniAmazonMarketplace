@@ -99,3 +99,4 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *models.Order) 
 	slog.Debug("Orders and items successfully persisted to database", slog.String("request_id", reqID), slog.String("order_id", order.ID))
 	return nil
 }
+

@@ -21,6 +21,8 @@ type ProductService interface{
 	GetProducts(ctx context.Context, page, limit int, search, category string) (*models.PaginatedProductResponse, error)
 	GetProductDetail(ctx context.Context, productID string) (*models.Product, error)
 	ValidateStock(ctx context.Context, req models.StockCheckRequest) ([]models.StockCheckResult, bool, error)
+
+	ReserveStock(ctx context.Context, req models.ReserveStockRequest) error
 }
 
 type productService struct{
@@ -280,4 +282,21 @@ func (s *productService) ValidateStock(ctx context.Context, req models.StockChec
 		results = append(results, result)
 	}
 	return results, allAvailable, nil
+}
+
+func (s *productService) ReserveStock(ctx context.Context, req models.ReserveStockRequest) error{
+	reqID, _ := ctx.Value(models.RequestIDKey).(string)
+
+	if len(req.Items) == 0{
+		return errors.New("Empty reservation request")
+	}
+
+	err := s.repo.ReserveStock(ctx, req.Items)
+	if err != nil{
+		slog.Warn("Stock reservation failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return err
+	}
+
+	slog.Info("Stock reserved successfully", slog.String("request_id", reqID))
+	return nil
 }

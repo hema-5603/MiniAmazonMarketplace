@@ -16,6 +16,8 @@ type ProductRepository interface{
 
 	GetProducts(ctx context.Context, limit, offset int, search, category string) ([]models.Product,error)
 	CountProducts(ctx context.Context, search, category string) (int64, error)
+
+	ReserveStock (ctx context.Context, items []models.ReserveItem) error
 }
 
 type productRepository struct{
@@ -124,4 +126,33 @@ func (r *productRepository) CountProducts(ctx context.Context, search, category 
 	var count int64
 	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
 	return count, err
+}
+
+func (r *productRepository) ReserveStock(ctx context.Context, items []models.ReserveItem) error{
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil{
+		return err
+	}
+	defer tx.Rollback() //safely net
+
+	query := `UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ? AND stock >= ? AND is_active = TRUE`
+
+	for _, item := range items{
+		res, err := tx.ExecContext(ctx, query, item.Quantity, item.ProductID, item.Quantity)
+		if err != nil{
+			return err
+		}
+
+		rowsAffected, err := res.RowsAffected()
+		if err != nil{
+			return err
+		}
+
+		// If 0 rows are updated, that means the product doesn't exist or inactive or stock < requested quantity
+		if rowsAffected == 0{
+			return errors.New("Failed to reserve stock: Insufficient inventory for product " + item.ProductID)
+		}
+	}
+
+	return tx.Commit()
 }

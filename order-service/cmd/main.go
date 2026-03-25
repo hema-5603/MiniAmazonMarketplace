@@ -3,12 +3,13 @@ package main
 import (
 	"log"
 	"log/slog"
-	"os"
-	"time"
+	"order-service/client"
 	"order-service/config"
 	"order-service/handler"
 	"order-service/repository"
 	"order-service/service"
+	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -57,7 +58,12 @@ func main() {
 	//4. Initialize layers
 	// Assume db is your *sql.DB connection
 	orderRepo := repository.NewOrderRepository(db)
-	orderService := service.NewOrderService(orderRepo)
+
+	// Initialize the HTTP client
+	productClient := client.NewProductClient(cfg.ProductServiceURL)
+
+	// Pass the client into the service
+	orderService := service.NewOrderService(orderRepo, productClient)
 	orderHandler := handler.NewOrderHandler(orderService)
 
 	e.GET("/health", func(c echo.Context) error {
