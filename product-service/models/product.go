@@ -2,6 +2,12 @@ package models
 
 import "time"
 
+// ContextKey is a custom type to avoid context key collisions
+type ContextKey string
+const (
+	RequestIDKey ContextKey = "request_id"
+)
+
 type Product struct{
 	ID string `json:"id"`
 	SellerID string `json:"seller_id"`
@@ -67,6 +73,8 @@ type StockCheckRequest struct{
 type StockCheckResult struct{
 	ProductID string `json:"product_id"`
 	HasStock bool `json:"has_stock"`
-	CurrentStock int `json:current_stock"`
+	CurrentStock int `json:"current_stock"`
+	Price float64 `json:"price"`
+	SellerID string `json:"seller_id"`
 	Message string `json:"message"`
 }
