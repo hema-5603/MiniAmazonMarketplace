@@ -266,6 +266,9 @@ func (s *productService) ValidateStock(ctx context.Context, req models.StockChec
 
 		//Check the actual stock quantity
 		result.CurrentStock = product.Stock
+		result.Price = product.Price
+		result.SellerID = product.SellerID
+		
 		if product.Stock < item.RequestedQuantity{
 			result.Message = "Insufficient stock"
 			allAvailable = false

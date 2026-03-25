@@ -74,5 +74,7 @@ type StockCheckResult struct{
 	ProductID string `json:"product_id"`
 	HasStock bool `json:"has_stock"`
 	CurrentStock int `json:"current_stock"`
+	Price float64 `json:"price"`
+	SellerID string `json:"seller_id"`
 	Message string `json:"message"`
 }
