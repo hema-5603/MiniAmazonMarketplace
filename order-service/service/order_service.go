@@ -212,7 +212,7 @@ func (s *orderService) GetOrderHistory(ctx context.Context, userID string, page,
 
 func (s *orderService) ExpireUnpaidOrders(ctx context.Context) error{
 	//PENDING order older than 15 minutes would be expire
-	expirationTime := time.Now().Add(-1*time.Minute)
+	expirationTime := time.Now().Add(-15*time.Minute)
 
 	slog.Info("Cron: Searching for orders older than", slog.Time("threshold", expirationTime))
 	// 1. Find the expired orders
