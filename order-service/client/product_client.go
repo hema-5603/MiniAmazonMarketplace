@@ -29,6 +29,7 @@ type ProductValidationResponse struct{
 type ProductClient interface{
 	ValidateCart(ctx context.Context, items []models.CheckoutItem) (*ProductValidationResponse, error)
 	ReserveStock(ctx context.Context, items []models.CheckoutItem) error
+	ReleaseStock(ctx context.Context, items []models.OrderItem) error
 }
 
 type productClient struct{
@@ -130,5 +131,36 @@ func (c *productClient) ReserveStock(ctx context.Context, items []models.Checkou
 		return errors.New(msg)
 	}
 	slog.Info("Stock reserved successfully", slog.String("request_id", reqID))
+	return nil
+}
+
+func (c *productClient) ReleaseStock(ctx context.Context, items []models.OrderItem) error{
+	var releaseItems []map[string]interface{}
+	for _, items := range items{
+		releaseItems = append(releaseItems, map[string]interface{}{
+			"product_id": items.ProductID,
+			"quantity" : items.Quantity,
+		})
+	}
+
+	payload := map[string]interface{}{
+		"items" : releaseItems,
+	}
+
+	jsonData, _ := json.Marshal(payload)
+
+	url := fmt.Sprintf("%s/api/v1/products/release-stock", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil{
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK{
+		return errors.New("Failed to release stock in product service")
+	}
+
+	defer resp.Body.Close()
 	return nil
 }

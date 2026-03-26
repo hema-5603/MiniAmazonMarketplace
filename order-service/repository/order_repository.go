@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"time"
 
 	"order-service/models"
 )
@@ -14,6 +15,8 @@ type OrderRepository interface{
 	GetOrderByID(ctx context.Context, orderID string) (*models.Order, error)
 	CountOrdersByUserID(ctx context.Context, userID string, status string) (int64, error)
 	GetOrdersByUserID(ctx context.Context, userID string, status string, limit, offset int) ([]models.Order, error)
+	GetPendingOrdersOlderThan(ctx context.Context, threshold time.Time) ([]string, error)
+	UpdateOrderStatus(ctx context.Context, orderID string, status models.OrderStatus) error
 }
 
 type orderRepository struct{
@@ -191,4 +194,53 @@ func (r *orderRepository) GetOrdersByUserID(ctx context.Context, userID string, 
 		orders = append(orders, o)
 	}
 	return orders, nil
+}
+
+
+func (r *orderRepository) GetPendingOrdersOlderThan(ctx context.Context, threshold time.Time) ([]string, error){
+	
+	slog.Info("Cron: Querying for orders older than", slog.Time("threshold",threshold))
+	
+	query := `SELECT id, created_at FROM orders WHERE status = ?`
+	rows, err := r.db.QueryContext(ctx, query, models.StatusPending)
+	if err != nil{
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orderIDs []string
+	for rows.Next(){
+		var id string
+		var createdAtBytes []byte 
+
+		// 1. Scan the raw data, If it fails, log the real error and skip to the next row
+		if err := rows.Scan(&id, &createdAtBytes); err != nil{
+			slog.Error("Failed to scan row", slog.String("error", err.Error()))
+			continue
+		}
+		// 2. Convert the raw bytes to a string
+		dateStr := string(createdAtBytes)
+		var parsedTime time.Time
+
+		// 3. Try parsing it using the ISO format
+		parsedTime, err = time.Parse(time.RFC3339, dateStr)
+		if err != nil{
+			parsedTime, _ = time.Parse("2006-01-02 15:04:05", dateStr)
+		}
+		// 4. Mathematical comparison
+		if parsedTime.Before(threshold){
+			slog.Info("Successfully caught an expired order",
+				slog.String("order_id", id),
+				slog.Time("Order_time", parsedTime),
+			)
+			orderIDs = append(orderIDs, id)
+		}
+	}
+	return orderIDs, nil
+}
+
+func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID string, status models.OrderStatus) error{
+	query := `UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, status, orderID)
+	return err
 }

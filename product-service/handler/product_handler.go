@@ -373,3 +373,22 @@ func (h *ProductHandler) ReserveStock(c echo.Context) error{
 		"message": "Stock reserved successfully",
 	})
 }
+
+func (h *ProductHandler) ReleaseStock(c echo.Context)error{
+	var req models.ReserveStockRequest
+	if err := c.Bind(&req); err != nil{
+		return c.JSON(400, map[string]string{
+			"message": "Invalid payload",
+		})
+	}
+
+	if err := h.service.ReleaseStock(context.Background(), req); err != nil{
+		return c.JSON(500, map[string]string{
+			"message": "Failed to release stock",
+		})
+	}
+
+	return c.JSON(200, map[string]string{
+		"message" : "Stock released successfully",
+	})
+}

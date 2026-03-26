@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	
 	"product-service/mocks"
@@ -138,4 +139,102 @@ func TestProductService(t *testing.T){
 		assert.False(t, results[0].HasStock)
 		assert.Equal(t, "Product is no longer available", results[0].Message)
 	})
+
+	// Reserve stock tests
+	t.Run("Reserve Stock - Success", func(t *testing.T) {
+		mockRepo := new(mocks.MockProductRepository)
+		svc := NewProductService(mockRepo)
+
+		req := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{ProductID: "prod1", Quantity: 2},
+			},
+		}
+
+		// Expect the repo to be called with the items and return no error
+		mockRepo.On("ReserveStock", ctx, req.Items).Return(nil).Once()
+
+		err := svc.ReserveStock(ctx, req)
+
+		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("ReserveStock - Failure (Insufficient stock)", func(t *testing.T) {
+		mockRepo := new(mocks.MockProductRepository)
+		svc := NewProductService(mockRepo)
+
+		req := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{ProductID: "prod1", Quantity: 50000},
+			},
+		}
+
+		// Simulate the database rejecting the reservation
+		mockRepo.On("ReserveStock", ctx, req.Items).Return(errors.New("Insufficient stock")).Once()
+
+		err := svc.ReserveStock(ctx, req)
+
+		assert.Error(t, err)
+		assert.Equal(t, "Insufficient stock", err.Error())
+		mockRepo.AssertExpectations(t)
+	})
+
+	// Release stock tests
+	t.Run("ReleaseStock - Success", func(t *testing.T) {
+		mockRepo := new(mocks.MockProductRepository)
+		svc := NewProductService(mockRepo)
+
+		req := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{ProductID: "prod1", Quantity: 2},
+			},
+		}
+
+		// Expect the repo to be called to put the stock back
+		mockRepo.On("ReleaseStock", ctx, req.Items).Return(nil).Once()
+
+		err := svc.ReleaseStock(ctx, req)
+
+		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("ReleaseStock - Failure (Early return)",func(t *testing.T) {
+		mockRepo := new(mocks.MockProductRepository)
+		svc := NewProductService(mockRepo)
+
+
+		// A Request comes in, but there are no items to release
+		req := models.ReserveStockRequest{
+			Items: []models.ReserveItem{},
+		}
+		err := svc.ReleaseStock(ctx, req)
+
+		// It should return nil, but it should never call the database
+		assert.NoError(t, err)
+		mockRepo.AssertNotCalled(t, "ReleaseStock")
+	})
+
+	t.Run("ReleaseStock - Failure (Database crash)",func(t *testing.T) {
+		mockRepo := new(mocks.MockProductRepository)
+		svc := NewProductService(mockRepo)
+
+		req := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{ProductID: "prod1", Quantity: 2},
+			},
+		}
+
+		// Simulate the database failure while trying to put stock back
+		mockRepo.On("ReleaseStock", ctx, req.Items).Return(errors.New("Database connection lost")).Once()
+
+		err := svc.ReleaseStock(ctx, req)
+
+		assert.Error(t, err)
+		assert.Equal(t, "Database connection lost", err.Error())
+		mockRepo.AssertExpectations(t)
+	})
 }
+
+

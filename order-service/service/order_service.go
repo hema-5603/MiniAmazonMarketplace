@@ -17,6 +17,7 @@ type OrderService interface{
 	CreateOrder(ctx context.Context, userID string, req models.CheckoutRequest) (*models.Order, error)
 	GetOrderDetail(ctx context.Context, orderID string ,userID string) (*models.Order, error)
 	GetOrderHistory(ctx context.Context, userID string, page, limit int, status string) (*models.PaginatedOrderResponse, error)
+	ExpireUnpaidOrders(ctx context.Context) error
 }
 
 type orderService struct{
@@ -207,4 +208,48 @@ func (s *orderService) GetOrderHistory(ctx context.Context, userID string, page,
 
 	slog.Debug("Order history fetched successfully", slog.String("request_id", reqID), slog.String("user_id", userID))
 	return res, nil
+}
+
+func (s *orderService) ExpireUnpaidOrders(ctx context.Context) error{
+	//PENDING order older than 15 minutes would be expire
+	expirationTime := time.Now().Add(-1*time.Minute)
+
+	slog.Info("Cron: Searching for orders older than", slog.Time("threshold", expirationTime))
+	// 1. Find the expired orders
+	orderIDs, err := s.repo.GetPendingOrdersOlderThan(ctx, expirationTime)
+	if err != nil{
+		slog.Error("Cron: Failed to fetch expired orders", slog.String("error", err.Error()))
+		return err
+	}
+
+	if len(orderIDs) == 0{
+		return nil // Nothing to do
+	}
+
+	slog.Info("Cron: Found unpaid orders to expire", slog.Int("count", len(orderIDs)))
+
+	// 2. Process each expired orders
+	for _, id := range orderIDs{
+		// Fetch the full order details to know what time to release
+		order, err := s.repo.GetOrderByID(ctx,id)
+		if err != nil{
+			continue
+		}
+
+		// Tell the orders to put the products back on the stock
+		err = s.productClient.ReleaseStock(ctx, order.Items)
+		if err != nil{
+			slog.Error("Cron: Failed to release stock", slog.String("order_id", id))
+			continue // Skip updating the status
+		}
+		
+		// Mark the order as EXPIRED in the database
+		err = s.repo.UpdateOrderStatus(ctx, id, models.StatusExpired)
+		if err != nil{
+			slog.Error("Cron: Failed to update order status", slog.String("order_id", id))
+		}else {
+			slog.Info("Cron: Successfully expired order and released stock", slog.String("order_id", id))
+		}
+	}
+	return nil
 }

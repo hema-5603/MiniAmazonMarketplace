@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"log/slog"
 	"order-service/client"
@@ -18,7 +19,6 @@ import (
 )
 
 func main() {
-	//Initializing the standard JSON logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout,nil))
 	slog.SetDefault(logger)
 
@@ -94,6 +94,25 @@ func main() {
 
 	// Get order detail
 	protectedGroup.GET("/orders/:id", orderHandler.GetOrderDetail)
+
+
+	// The Background cron job
+	go func(){
+		//Run this loop forever in the background
+		ticker := time.NewTicker(1*time.Minute) // Check every 1 minute
+		defer ticker.Stop()
+
+		for range ticker.C{
+			// Provide a background context for the job
+			ctx := context.Background()
+
+			// Call the service for expire unpaid orders
+			err := orderService.ExpireUnpaidOrders(ctx)
+			if err != nil{
+				slog.Error("Cron job execution failed", slog.String("error", err.Error()))
+			}
+		}
+	}()
 
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort

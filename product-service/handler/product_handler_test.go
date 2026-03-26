@@ -326,4 +326,114 @@ func TestProductHandler(t *testing.T){
 		// Assert HTTP 400 Bad request
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})	
+
+	// Reserve stock handler tests
+
+	t.Run("ReserveStock - Success", func(t *testing.T) {
+		mockSvc := new(mocks.MockProductService)
+		h := NewProductHandler(mockSvc)
+
+		reqBody := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{
+					ProductID: "prod1",
+					Quantity: 2,
+				},
+			},
+		}
+
+		bodyBytes, _ := json.Marshal(reqBody)
+
+		// Server to server call, no JWT injected
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products/reserve-stock", bytes.NewReader(bodyBytes))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		mockSvc.On("ReserveStock", mock.Anything, reqBody).Return(nil).Once()
+
+		_ = h.ReserveStock(c)
+
+		// Expect HTTP 200 OK
+		assert.Equal(t,http.StatusOK, rec.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("ReserveStock - Failure (Invalid payload)", func(t *testing.T) {
+		mockSvc := new(mocks.MockProductService)
+		h := NewProductHandler(mockSvc)
+
+		// Sending broken JSON
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products/reserve-stock", bytes.NewReader([]byte(`{invalid json}`)))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		_ = h.ReserveStock(c)
+
+		// Expect HTTP 400 Bad request
+		assert.Equal(t,http.StatusBadRequest, rec.Code)
+		mockSvc.AssertNotCalled(t, "ReserveStock") // Ensure service is protected from bad data
+	})
+
+	// Release stock handler tests
+	t.Run("ReleaseStock - Success", func(t *testing.T) {
+		mockSvc := new(mocks.MockProductService)
+		h := NewProductHandler(mockSvc)
+
+		reqBody := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{
+					ProductID: "prod1",
+					Quantity: 2,
+				},
+			},
+		}
+
+		bodyBytes, _ := json.Marshal(reqBody)
+
+		// Since cron job calls this, so it's a public/internal route
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products/release-stock", bytes.NewReader(bodyBytes))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		mockSvc.On("ReleaseStock", mock.Anything, reqBody).Return(nil).Once()
+
+		_ = h.ReleaseStock(c)
+
+		// Expect HTTP 200 OK
+		assert.Equal(t,http.StatusOK, rec.Code)
+		mockSvc.AssertExpectations(t)
+	})
+	t.Run("ReleaseStock - Failure(Internal service error)", func(t *testing.T) {
+		mockSvc := new(mocks.MockProductService)
+		h := NewProductHandler(mockSvc)
+
+		reqBody := models.ReserveStockRequest{
+			Items: []models.ReserveItem{
+				{
+					ProductID: "prod1",
+					Quantity: 2,
+				},
+			},
+		}
+
+		bodyBytes, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products/release-stock", bytes.NewReader(bodyBytes))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		// Simulate the service layer failing (Database crash)
+		mockSvc.On("ReleaseStock", mock.Anything, reqBody).Return(errors.New("Database connection timeout")).Once()
+
+		_ = h.ReleaseStock(c)
+
+		// Expect HTTP 500 Internal server error
+		assert.Equal(t,http.StatusInternalServerError, rec.Code)
+	})
+
+
 }
