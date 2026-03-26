@@ -23,6 +23,7 @@ type ProductService interface{
 	ValidateStock(ctx context.Context, req models.StockCheckRequest) ([]models.StockCheckResult, bool, error)
 
 	ReserveStock(ctx context.Context, req models.ReserveStockRequest) error
+	ReleaseStock(ctx context.Context, req models.ReserveStockRequest) error
 }
 
 type productService struct{
@@ -299,4 +300,12 @@ func (s *productService) ReserveStock(ctx context.Context, req models.ReserveSto
 
 	slog.Info("Stock reserved successfully", slog.String("request_id", reqID))
 	return nil
+}
+
+func (s *productService) ReleaseStock(ctx context.Context, req models.ReserveStockRequest) error{
+	if len(req.Items) == 0{
+		return nil
+	}
+
+	return s.repo.ReleaseStock(ctx, req.Items)
 }

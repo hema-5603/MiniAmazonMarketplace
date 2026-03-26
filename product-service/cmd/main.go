@@ -17,7 +17,7 @@ import (
 
 func main() {
 	//Initializing the standard JSON logger
-	logger := slog.New(slog.NewJSONHandler(os.Stdout,nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	slog.Info("")
@@ -102,6 +102,9 @@ func main() {
 
 	// Reserve stock
 	publicGroup.POST("/products/reserve-stock",productHandler.ReserveStock)
+
+	// Release stock
+	publicGroup.POST("/products/release-stock", productHandler.ReleaseStock)
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
 	if port == ""{

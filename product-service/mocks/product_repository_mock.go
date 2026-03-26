@@ -43,3 +43,13 @@ func (m *MockProductRepository) CountProducts(ctx context.Context, search, categ
 	args := m.Called(ctx,search, category)
 	return args.Get(0).(int64), args.Error(1)
 }
+
+func (m *MockProductRepository) ReserveStock(ctx context.Context, items []models.ReserveItem)error{
+	args := m.Called(ctx, items)
+	return args.Error(0)
+}
+
+func (m *MockProductRepository) ReleaseStock(ctx context.Context, items []models.ReserveItem) error{
+	args := m.Called(ctx, items)
+	return args.Error(0)
+}

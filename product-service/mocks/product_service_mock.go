@@ -55,3 +55,13 @@ func (m *MockProductService) ValidateStock(ctx context.Context, req models.Stock
 	args := m.Called(ctx, req)
 	return args.Get(0).([]models.StockCheckResult), args.Bool(1), args.Error(1)
 }
+
+func (m *MockProductService) ReserveStock(ctx context.Context, req models.ReserveStockRequest)error{
+	args := m.Called(ctx, req)
+	return args.Error(0)
+}
+
+func (m *MockProductService) ReleaseStock(ctx context.Context, req models.ReserveStockRequest) error{
+	args := m.Called(ctx, req)
+	return args.Error(0)
+}
