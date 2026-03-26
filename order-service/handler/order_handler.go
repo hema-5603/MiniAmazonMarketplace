@@ -133,3 +133,39 @@ func (h *OrderHandler) GetOrderHistory(c echo.Context) error{
 		"meta" : response.Meta,
 	})
 }
+
+func (h *OrderHandler) CancelOrder(c echo.Context) error{
+	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
+
+
+	// 1. Get Order ID from the URL path
+	orderID := c.Param("id")
+
+	// 2. Extract userID from JWT
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userID := claims["user_id"].(string)
+
+	// 3. Call the service
+	err := h.service.CancelOrder(ctx, orderID, userID)
+	if err != nil{
+		status := http.StatusBadRequest
+		if err.Error() == "Unauthorized: You do not own this product" {
+			status = http.StatusForbidden
+		}else if err.Error() == "Order not found"{
+			status = http.StatusNotFound
+		}
+
+		return c.JSON(status, map[string]interface{}{
+			"success": false,
+			"message" : err.Error(),
+		})
+	}
+
+	// 4. Return success
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success" : true,
+		"message" : "Order has been successfully cancelled",
+	})
+}

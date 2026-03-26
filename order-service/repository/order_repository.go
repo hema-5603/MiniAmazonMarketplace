@@ -241,6 +241,16 @@ func (r *orderRepository) GetPendingOrdersOlderThan(ctx context.Context, thresho
 
 func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID string, status models.OrderStatus) error{
 	query := `UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, status, orderID)
-	return err
+
+	res, err := r.db.ExecContext(ctx, query, status, orderID)
+	if err != nil{
+		return err
+	}
+
+	// Safety check to ensure we actually updated a row
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0{
+		return errors.New("Order not found or status already updated")
+	}
+	return nil
 }

@@ -18,6 +18,7 @@ type OrderService interface{
 	GetOrderDetail(ctx context.Context, orderID string ,userID string) (*models.Order, error)
 	GetOrderHistory(ctx context.Context, userID string, page, limit int, status string) (*models.PaginatedOrderResponse, error)
 	ExpireUnpaidOrders(ctx context.Context) error
+	CancelOrder(ctx context.Context, orderID string, userID string) error
 }
 
 type orderService struct{
@@ -212,7 +213,7 @@ func (s *orderService) GetOrderHistory(ctx context.Context, userID string, page,
 
 func (s *orderService) ExpireUnpaidOrders(ctx context.Context) error{
 	//PENDING order older than 15 minutes would be expire
-	expirationTime := time.Now().Add(-1*time.Minute)
+	expirationTime := time.Now().Add(-15*time.Minute)
 
 	slog.Info("Cron: Searching for orders older than", slog.Time("threshold", expirationTime))
 	// 1. Find the expired orders
@@ -251,5 +252,44 @@ func (s *orderService) ExpireUnpaidOrders(ctx context.Context) error{
 			slog.Info("Cron: Successfully expired order and released stock", slog.String("order_id", id))
 		}
 	}
+	return nil
+}
+
+func (s *orderService) CancelOrder(ctx context.Context, orderID string, userID string) error{
+	reqID, _ := ctx.Value(models.RequestIDKey).(string)
+
+	// 1. Fetch the full order(which includes the items needed for restock)
+	order, err := s.repo.GetOrderByID(ctx, orderID)
+	if err != nil{
+		return errors.New("Order not found")
+	}
+
+	// 2. Prevent users from cancelling other people's orders
+	if order.UserID != userID{
+		slog.Warn("Unauthorized cancellation attempt", slog.String("request_id", reqID), slog.String("user_id", userID))
+		return errors.New("Unauthorized: You do not own this product")
+	}
+
+	// 3. Business logic: You can cancel a PENDING order
+	if order.Status != models.StatusPending{
+		slog.Warn("Attempted to cancel non-pending order", slog.String("request_id", reqID), slog.String("status",string(order.Status)))
+		return errors.New("Only pending orders can be cancelled")
+	}
+
+	// 4. RESTOCK: Tell the product service to put the items back on the shelf
+	err = s.productClient.ReleaseStock(ctx, order.Items)
+	if err != nil{
+		slog.Error("Failed to release stock during cancellation", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return errors.New("Failed to communicate with inventory system")
+	}
+
+	// 5. Update the database to CANCELLED
+	err = s.repo.UpdateOrderStatus(ctx, orderID, models.StatusCancelled)
+	if err != nil{
+		slog.Error("Failed to update order status to cancelled", slog.String("request_id", reqID))
+		return errors.New("System error occurred while cancelling the order")
+	}
+
+	slog.Info("Order successfully cancelled manually", slog.String("request_id", reqID), slog.String("order_id", orderID))
 	return nil
 }
