@@ -7,6 +7,7 @@ import (
 	"order-service/client"
 	"order-service/config"
 	"order-service/handler"
+	 mw "order-service/middleware"
 	"order-service/repository"
 	"order-service/service"
 	"os"
@@ -87,16 +88,16 @@ func main() {
 	//6.3 Protected route
 
 	// Checkout endpoint
-	protectedGroup.POST("/orders/checkout",orderHandler.Checkout)
+	protectedGroup.POST("/orders/checkout",orderHandler.Checkout, mw.RoleBasedAccess("CUSTOMER"))
 
 	// Get order history 
-	protectedGroup.GET("/orders", orderHandler.GetOrderHistory)
+	protectedGroup.GET("/orders", orderHandler.GetOrderHistory, mw.RoleBasedAccess("CUSTOMER"))
 
 	// Get order detail
-	protectedGroup.GET("/orders/:id", orderHandler.GetOrderDetail)
+	protectedGroup.GET("/orders/:id", orderHandler.GetOrderDetail, mw.RoleBasedAccess("CUSTOMER", "SELLER"))
 
 	// Cancel order
-	protectedGroup.PUT("/orders/:id/cancel", orderHandler.CancelOrder)
+	protectedGroup.PUT("/orders/:id/cancel", orderHandler.CancelOrder, mw.RoleBasedAccess("CUSTOMER"))
 
 	// The Background cron job
 	go func(){
