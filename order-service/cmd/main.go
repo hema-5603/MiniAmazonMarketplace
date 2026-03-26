@@ -95,6 +95,8 @@ func main() {
 	// Get order detail
 	protectedGroup.GET("/orders/:id", orderHandler.GetOrderDetail)
 
+	// Cancel order
+	protectedGroup.PUT("/orders/:id/cancel", orderHandler.CancelOrder)
 
 	// The Background cron job
 	go func(){
