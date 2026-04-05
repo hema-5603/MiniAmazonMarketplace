@@ -201,8 +201,8 @@ func (r *orderRepository) GetPendingOrdersOlderThan(ctx context.Context, thresho
 	
 	slog.Info("Cron: Querying for orders older than", slog.Time("threshold",threshold))
 	
-	query := `SELECT id, created_at FROM orders WHERE status = ?`
-	rows, err := r.db.QueryContext(ctx, query, models.StatusPending)
+	query := `SELECT id, created_at FROM orders WHERE status = ? AND created_at <= ?`
+	rows, err := r.db.QueryContext(ctx, query, models.StatusPending, threshold)
 	if err != nil{
 		return nil, err
 	}

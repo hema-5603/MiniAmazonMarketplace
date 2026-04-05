@@ -81,11 +81,11 @@ func (r *productRepository) GetProducts(ctx context.Context, limit, offset int, 
 	var args []interface{}
 
 	if search != ""{
-		query += `AND name LIKE ?`
+		query += ` AND name LIKE ?`
 		args = append(args, "%"+search+"%") //Enables partial matching the user prompted name with the product name
 	}
 	if category != ""{
-		query += `AND category = ?`
+		query += ` AND category = ?`
 		args = append(args, category)
 	}
 
@@ -116,11 +116,11 @@ func (r *productRepository) CountProducts(ctx context.Context, search, category 
 	var args []interface{}
 
 	if search != ""{
-		query += `AND name LIKE ?`
+		query += ` AND name LIKE ?`
 		args = append(args, "%"+search+"%")
 	}
 	if category != ""{
-		query += `AND category = ?`
+		query += ` AND category = ?`
 		args = append(args, category)
 	}
 

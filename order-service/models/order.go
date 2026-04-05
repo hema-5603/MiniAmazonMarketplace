@@ -33,14 +33,14 @@ type Order struct{
 }
 
 type CheckoutItem struct{
-	ProductID string `json:"product_id"`
+	ProductID string `json:"product_id" validate:"required"`
 	SellerID string `json:"seller_id"`
-	Quantity int `json:"quantity"`
-	Price float64 `json:"price"`
+	Quantity int `json:"quantity" validate:"required,min=1"`
+	Price float64 `json:"price" validate:"required,gt=0"`
 }
 
 type CheckoutRequest struct{
-	Items []CheckoutItem `json:"items"`
+	Items []CheckoutItem `json:"items" validate:"required,min=1,dive"` // Dive ensures validation of the items inside the array too
 }
 
 // Pagination meta information

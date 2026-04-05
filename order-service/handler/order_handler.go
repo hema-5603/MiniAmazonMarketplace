@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -21,15 +22,42 @@ func NewOrderHandler(service service.OrderService) *OrderHandler{
 	return &OrderHandler{service: service}
 }
 
+// Helper function to safely extract JWT claims without panicking
+func extractUserFromJWT(c echo.Context) (string, string, error){
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok || userToken == nil{
+		return "", "", errors.New("Missing or invalid token")
+	}
+
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok{
+		return "", "", errors.New("Invalid token claims format")
+	}
+
+	userID, ok1 := claims["user_id"].(string)
+	role, ok2 := claims["role"].(string)
+
+	if !ok1 || !ok2{
+		return "", "", errors.New("Missing user_id or role in token")
+	}
+
+	return userID, role, nil
+}
+
 func (h *OrderHandler) Checkout(c echo.Context) error{
 	// 1. Context tracing
 	reqID := c.Response().Header().Get(echo.HeaderXRequestID)
 	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
 
 	// 2. Extract user info from JWT
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, _, err := extractUserFromJWT(c)
+	if err != nil{
+		slog.Warn("JWT extraction failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
 
 	// 3.Bind JSON payload
 	var req models.CheckoutRequest
@@ -41,6 +69,14 @@ func (h *OrderHandler) Checkout(c echo.Context) error{
 		})
 	}
 
+	// Validate the struct tags 
+	if err := c.Validate(&req); err != nil{
+		slog.Warn("Validation failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success" : false,
+			"message" : "Validation failed: Please ensure all required fields are correct.",
+		})
+	}
 	// 4. Call service
 	order, err := h.service.CreateOrder(ctx, userID, req)
 	if err != nil{
@@ -68,9 +104,14 @@ func (h *OrderHandler) GetOrderDetail(c echo.Context) error{
 	orderID := c.Param("id")
 
 	// 2. Extract User ID from the JWT
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, _, err := extractUserFromJWT(c)
+	if err != nil{
+		slog.Warn("JWT extraction failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
 
 	// 3. Call the service
 	order, err := h.service.GetOrderDetail(ctx, orderID, userID)
@@ -100,9 +141,14 @@ func (h *OrderHandler) GetOrderHistory(c echo.Context) error{
 	ctx := context.WithValue(c.Request().Context(), models.RequestIDKey, reqID)
 
 	// 1. Extract userID from JWT
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, _, err := extractUserFromJWT(c)
+	if err != nil{
+		slog.Warn("JWT extraction failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
 
 	// 2. Parse query parameters
 	status := c.QueryParam("status")
@@ -143,12 +189,17 @@ func (h *OrderHandler) CancelOrder(c echo.Context) error{
 	orderID := c.Param("id")
 
 	// 2. Extract userID from JWT
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, _, err := extractUserFromJWT(c)
+	if err != nil{
+		slog.Warn("JWT extraction failed", slog.String("request_id", reqID), slog.String("error", err.Error()))
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success" : false,
+			"message" : err.Error(),
+		})
+	}
 
 	// 3. Call the service
-	err := h.service.CancelOrder(ctx, orderID, userID)
+	err = h.service.CancelOrder(ctx, orderID, userID)
 	if err != nil{
 		status := http.StatusBadRequest
 		if err.Error() == "Unauthorized: You do not own this product" {
@@ -169,3 +220,4 @@ func (h *OrderHandler) CancelOrder(c echo.Context) error{
 		"message" : "Order has been successfully cancelled",
 	})
 }
+

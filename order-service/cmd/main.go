@@ -7,12 +7,13 @@ import (
 	"order-service/client"
 	"order-service/config"
 	"order-service/handler"
-	 mw "order-service/middleware"
+	mw "order-service/middleware"
 	"order-service/repository"
 	"order-service/service"
 	"os"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	_ "github.com/go-sql-driver/mysql"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -34,6 +35,9 @@ func main() {
 
 	//3. Initialize echo
 	e := echo.New()
+
+	// Registering the custom validator
+	e.Validator = &config.CustomValidator{Validator: validator.New()}
 	e.Use(middleware.RequestID())
 	//Request Logging
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc{
