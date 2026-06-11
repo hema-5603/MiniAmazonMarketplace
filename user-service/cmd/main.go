@@ -73,8 +73,8 @@ func main() {
 	}))
 
 	//6.3 Protected route
-	protectedGroup.GET("users/profile",userHandler.GetProfile)
-	protectedGroup.PUT("users/profile",userHandler.UpdateProfile)
+	protectedGroup.GET("/users/profile",userHandler.GetProfile)
+	protectedGroup.PUT("/users/profile",userHandler.UpdateProfile)
 	
 	//7. Start the server on the dynamic port
 	port := cfg.ServerPort
